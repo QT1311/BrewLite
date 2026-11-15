@@ -5,10 +5,10 @@ tự chạy khi mở hoặc cập nhật Pull Request vào `main`.
 
 | Mục | Nội dung |
 |---|---|
-| Link repository | _điền sau khi push_ |
-| PR pipeline **thành công** | _link PR + ảnh chụp tab Checks xanh_ |
-| PR pipeline **phát hiện lỗi** | _link PR + ảnh chụp job đỏ (ví dụ test thất bại)_ |
-| Branch protection | _ảnh Settings → Branches thể hiện required checks_ |
+| Link repository | https://github.com/QT1311/BrewLite |
+| PR pipeline **thành công** | https://github.com/QT1311/BrewLite/pull/1 (nhánh `docs/test-pr-green`): Lint & typecheck ✓, Test ✓, Build ✓ (3/3), đã merge vào `main` |
+| PR pipeline **phát hiện lỗi** | https://github.com/QT1311/BrewLite/pull/2 (nhánh `test/ci-should-fail`): Lint & typecheck ✓, **Test (unit + integration) ✗** do assert sai trong `pricing.spec.ts`; Build không chạy vì phụ thuộc Test. PR đã đóng, không merge |
+| Branch protection | Ruleset `protect-main` (Active): yêu cầu PR, yêu cầu check xanh, chặn force push |
 
 ## Cách tạo minh chứng
 
