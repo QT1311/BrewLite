@@ -13,7 +13,6 @@ export function Header() {
         <nav aria-label="Điều hướng chính">
           <Link href="/#menu" className="nav-home">Thực đơn</Link>
           <Link href="/#how" className="nav-how">Cách hoạt động</Link>
-          <Link href="/orders" className="nav-orders">Đơn của tôi</Link>
           <CartLink />
           <AuthLink />
         </nav>
