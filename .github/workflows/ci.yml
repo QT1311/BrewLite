@@ -88,7 +88,8 @@ jobs:
   e2e:
     name: E2E (Docker Compose + Playwright)
     needs: build
-    runs-on: ubuntu-latest
+    # Ghim Ubuntu 24.04: Playwright 1.56 chưa hỗ trợ ubuntu-latest (26.04).
+    runs-on: ubuntu-24.04
     timeout-minutes: 25
     env:
       JWT_SECRET: ci-only-jwt-secret
