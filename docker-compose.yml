@@ -34,7 +34,9 @@ services:
       POSTGRES_DB: ${POSTGRES_DB:-brewlite}
       JWT_SECRET: ${JWT_SECRET:?Đặt JWT_SECRET trong file .env}
       JWT_EXPIRES_IN: ${JWT_EXPIRES_IN:-1d}
-      STAFF_API_KEY: ${STAFF_API_KEY:?Đặt STAFF_API_KEY trong file .env}
+      # Admin đầu tiên (tuỳ chọn): có cả hai biến thì tự tạo/nâng tài khoản admin khi API khởi động
+      ADMIN_EMAIL: ${ADMIN_EMAIL:-}
+      ADMIN_PASSWORD: ${ADMIN_PASSWORD:-}
       WEB_ORIGIN: ${WEB_ORIGIN:-http://localhost:3000}
       API_PORT: 3001
     ports:

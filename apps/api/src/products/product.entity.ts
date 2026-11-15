@@ -32,6 +32,10 @@ export class Product {
   @Column({ type: 'int', default: 0 })
   stock: number;
 
+  /** false = admin tạm ngưng bán: ẩn khỏi menu và không đặt được. */
+  @Column({ name: 'is_active', type: 'boolean', default: true })
+  isActive: boolean;
+
   /** Optimistic locking: tăng 1 mỗi lần cập nhật tồn kho (FR-17). */
   @VersionColumn({ default: 1 })
   version: number;

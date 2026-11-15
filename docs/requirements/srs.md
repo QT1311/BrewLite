@@ -22,6 +22,11 @@
 | FR-16 | Hệ thống phải quản lý trạng thái đơn theo một chuỗi hợp lệ (state machine) | Should | Chuyển trạng thái không hợp lệ (ví dụ COMPLETED → PENDING) bị chặn và trả lỗi |
 | FR-17 | Hệ thống phải kiểm soát tồn kho khi nhiều khách đặt đồng thời | Should | Khi 2 yêu cầu đặt cùng sản phẩm/cùng lúc vượt tồn kho, chỉ 1 yêu cầu thành công, yêu cầu còn lại báo hết hàng |
 | FR-18 | Hệ thống có thể áp dụng mã khuyến mãi và cộng điểm thưởng sau khi đơn PAID | Could | Nhập mã hợp lệ giảm đúng số tiền quy định; điểm thưởng cộng đúng theo tổng tiền đơn |
+| FR-19 | Hệ thống phải phân quyền theo vai trò khách hàng, nhân viên (staff) và quản trị viên (admin); đăng ký công khai chỉ tạo khách hàng | Must | Gọi API của staff hoặc admin bằng token khách trả 403; token của tài khoản bị khoá trả 401; gửi `role` khi đăng ký vẫn tạo khách hàng |
+| FR-20 | Nhân viên phải xem được các đơn đã thanh toán cần xử lý và chuyển trạng thái `PREPARING → READY → COMPLETED` trên màn hình quầy | Must | Trang `/staff` liệt kê đơn `PAID`, `PREPARING`, `READY` kèm món và tên khách; bấm nút chuyển đúng trạng thái kế tiếp, chuyển sai bị chặn |
+| FR-21 | Admin phải xem được doanh thu theo ngày, số đơn, giá trị trung bình và món bán chạy | Should | Doanh thu chỉ tính giao dịch thanh toán thành công; đơn chưa trả, thanh toán lỗi hoặc đã huỷ không được tính |
+| FR-22 | Admin phải xem được toàn bộ đơn hàng và quản lý món (đặt tồn kho, ngưng bán/bán lại) | Should | Món ngưng bán ẩn khỏi menu và không đặt được; tồn kho không nhận giá trị âm |
+| FR-23 | Admin phải tạo và khoá/mở khoá tài khoản nhân viên; admin đầu tiên được tạo từ biến môi trường | Should | Staff bị khoá mất quyền ngay dù token còn hạn; admin không thể bị khoá qua API này |
 
 ## 2. Yêu cầu phi chức năng (Non-functional Requirements)
 

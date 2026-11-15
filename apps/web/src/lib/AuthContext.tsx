@@ -11,8 +11,8 @@ interface AuthValue {
   status: Status;
   user: AuthUser | null;
   token: string | null;
-  login: (email: string, password: string) => Promise<void>;
-  register: (name: string, email: string, password: string) => Promise<void>;
+  login: (email: string, password: string) => Promise<AuthUser>;
+  register: (name: string, email: string, password: string) => Promise<AuthUser>;
   logout: () => void;
 }
 
@@ -65,11 +65,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     };
   }, []);
 
-  const apply = useCallback((res: AuthResult) => {
+  const apply = useCallback((res: AuthResult): AuthUser => {
     writeToken(res.accessToken);
     setToken(res.accessToken);
     setUser(res.user);
     setStatus('authed');
+    return res.user;
   }, []);
 
   const login = useCallback(async (email: string, password: string) => apply(await loginUser({ email, password })), [apply]);

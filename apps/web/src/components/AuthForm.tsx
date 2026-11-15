@@ -3,6 +3,7 @@
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { FormEvent, useState } from 'react';
+import { roleHome } from '@/lib/api';
 import { useAuth } from '@/lib/AuthContext';
 import { safeRedirect } from '@/lib/redirect';
 
@@ -37,9 +38,11 @@ export function AuthForm({ mode, next }: { mode: Mode; next?: string }) {
     setBusy(true);
     setError(null);
     try {
-      if (isRegister) await register(name.trim(), email.trim(), password);
-      else await login(email.trim(), password);
-      router.push(target);
+      const user = isRegister
+        ? await register(name.trim(), email.trim(), password)
+        : await login(email.trim(), password);
+      // Không có trang đích riêng thì đưa nhân viên/admin về màn hình làm việc của họ.
+      router.push(target === '/' && user ? roleHome(user.role) : target);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Đã có lỗi xảy ra');
       setBusy(false);
