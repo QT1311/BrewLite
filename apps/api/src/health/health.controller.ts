@@ -10,7 +10,12 @@ export class HealthController {
   async check() {
     try {
       await this.dataSource.query('SELECT 1');
-      return { status: 'ok', database: 'up', time: new Date().toISOString() };
+      return {
+        status: 'ok',
+        database: 'up',
+        version: process.env.APP_VERSION ?? 'dev',
+        time: new Date().toISOString(),
+      };
     } catch {
       throw new ServiceUnavailableException({ status: 'error', database: 'down' });
     }

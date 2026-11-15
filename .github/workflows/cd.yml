@@ -1,0 +1,141 @@
+# CD cho BrewLite (Task 5.3): Push main / Tag vX.Y.Z → Lint+Test → Build image → Push GHCR → Deploy Railway → Smoke test.
+# Smoke test lỗi thì pipeline dừng và tự rollback về image production trước đó (ADR 009).
+name: CD
+
+on:
+  push:
+    branches: [main]
+    tags: ['v*.*.*']
+  workflow_dispatch:
+
+concurrency:
+  group: cd-production
+  cancel-in-progress: false # không huỷ giữa chừng một lần deploy đang chạy
+
+permissions:
+  contents: read
+
+jobs:
+  quality:
+    name: Lint + Test (CI)
+    uses: ./.github/workflows/ci.yml
+
+  build-push:
+    name: Build & push image
+    needs: quality
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: read
+      packages: write
+    outputs:
+      owner: ${{ steps.meta.outputs.owner }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Chuẩn bị tên image
+        id: meta
+        run: |
+          echo "owner=${GITHUB_REPOSITORY_OWNER,,}" >> "$GITHUB_OUTPUT"
+          VERSION_TAG=""
+          if [[ "$GITHUB_REF" == refs/tags/v* ]]; then VERSION_TAG="${GITHUB_REF_NAME}"; fi
+          echo "version_tag=$VERSION_TAG" >> "$GITHUB_OUTPUT"
+
+      - uses: docker/setup-buildx-action@v3
+
+      - uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Build & push API
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: apps/api/Dockerfile
+          push: true
+          build-args: GIT_SHA=${{ github.sha }}
+          tags: |
+            ghcr.io/${{ steps.meta.outputs.owner }}/brewlite-api:${{ github.sha }}
+          cache-from: type=gha,scope=api
+          cache-to: type=gha,mode=max,scope=api
+
+      - name: Build & push Web
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: apps/web/Dockerfile
+          push: true
+          build-args: NEXT_PUBLIC_API_URL=${{ vars.PROD_API_URL }}
+          tags: |
+            ghcr.io/${{ steps.meta.outputs.owner }}/brewlite-web:${{ github.sha }}
+          cache-from: type=gha,scope=web
+          cache-to: type=gha,mode=max,scope=web
+
+  deploy:
+    name: Deploy & smoke test
+    needs: build-push
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: read
+      packages: write
+    env:
+      OWNER: ${{ needs.build-push.outputs.owner }}
+      RAILWAY_TOKEN: ${{ secrets.RAILWAY_TOKEN }}
+      PROD_API_URL: ${{ vars.PROD_API_URL }}
+      PROD_WEB_URL: ${{ vars.PROD_WEB_URL }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: docker/setup-buildx-action@v3
+
+      - uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Ghi lại image production hiện tại (để rollback)
+        id: previous
+        run: |
+          for svc in api web; do
+            IMG="ghcr.io/$OWNER/brewlite-$svc"
+            DIGEST="$(docker buildx imagetools inspect "$IMG:production" --format '{{json .Manifest.Digest}}' 2>/dev/null | tr -d '"' || true)"
+            echo "$svc=$DIGEST" >> "$GITHUB_OUTPUT"
+            echo "Trước deploy $svc: ${DIGEST:-<chưa có>}"
+          done
+
+      - name: Gắn tag production (và tag phiên bản nếu có)
+        run: |
+          for svc in api web; do
+            IMG="ghcr.io/$OWNER/brewlite-$svc"
+            TAGS=(--tag "$IMG:production")
+            if [[ "$GITHUB_REF" == refs/tags/v* ]]; then TAGS+=(--tag "$IMG:${GITHUB_REF_NAME}"); fi
+            docker buildx imagetools create "${TAGS[@]}" "$IMG:${GITHUB_SHA}"
+          done
+
+      - name: Deploy lên Railway
+        run: |
+          npx -y @railway/cli@latest redeploy --service api --yes
+          npx -y @railway/cli@latest redeploy --service web --yes
+
+      - name: Smoke test
+        id: smoke
+        run: scripts/smoke-test.sh "$PROD_API_URL" "$PROD_WEB_URL" "$GITHUB_SHA"
+
+      - name: Tự động rollback khi smoke test lỗi
+        if: failure() && steps.smoke.conclusion == 'failure'
+        run: |
+          echo "::error::Smoke test lỗi, rollback về image production trước đó"
+          for svc in api web; do
+            IMG="ghcr.io/$OWNER/brewlite-$svc"
+            PREV="$(echo '${{ toJSON(steps.previous.outputs) }}' | jq -r ".$svc // empty")"
+            if [ -z "$PREV" ]; then echo "Không có bản trước cho $svc, bỏ qua"; continue; fi
+            docker buildx imagetools create --tag "$IMG:production" "$IMG@$PREV"
+            npx -y @railway/cli@latest redeploy --service "$svc" --yes
+          done
+          SMOKE_ATTEMPTS=20 scripts/smoke-test.sh "$PROD_API_URL" "$PROD_WEB_URL" || true
+
+      - name: Đánh dấu pipeline thất bại sau rollback
+        if: failure() && steps.smoke.conclusion == 'failure'
+        run: exit 1

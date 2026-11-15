@@ -20,22 +20,26 @@
 
 **Lưu ý:** `NEXT_PUBLIC_API_URL` được nhúng vào bundle lúc build, nên đổi URL API phải build lại image web.
 
-## 3. Quy trình phát hành
+## 3. Quy trình phát hành (ADR 009)
 
-1. Push hoặc merge vào `main`; CI chạy lint, test và build.
-2. Nếu pass, CI build image cho `web` và `api` với tag là commit SHA, đẩy lên GHCR.
-3. Migration chạy một lần trước khi `api` nhận traffic mới.
-4. Trigger deploy trên Railway; Railway pull image và chạy health check.
-5. Smoke test: `GET /health` trả 200 và `GET /products` trả danh sách món.
-6. Gắn tag phiên bản `vX.Y.Z` và viết release notes.
+1. Merge PR vào `main` (hoặc đẩy tag `vX.Y.Z`) → workflow **CD** chạy.
+2. Job `quality` gọi lại CI: lint, test, build, E2E. Lỗi thì dừng.
+3. Job `build-push` build image `brewlite-api`, `brewlite-web` và đẩy lên GHCR với tag là commit SHA.
+4. Job `deploy` ghi lại digest `production` hiện tại, trỏ `production` (và `vX.Y.Z` nếu có) vào SHA mới, gọi `railway redeploy`.
+5. Migration chạy khi `api` khởi động, trước khi Railway chuyển traffic (health check `/health` phải xanh).
+6. Smoke test: `/health` có `version` đúng SHA, `/products` không rỗng, web trả 200.
+7. Smoke test lỗi → pipeline tự rollback về digest trước đó rồi báo thất bại.
+
+Phát hành chính thức: `git tag v1.0.0 && git push origin v1.0.0`, sau đó tạo GitHub Release với nội dung `docs/release-notes/`.
 
 ## 4. Rollback
 
-- **Cách 1 (nhanh):** trên Railway, chọn deployment trước đó của service và "Rollback". Image cũ vẫn còn trong giới hạn lưu trữ của gói.
-- **Cách 2:** deploy lại image của tag trước (tag `vX.Y.Z-1` hoặc SHA cũ) bằng cách đổi image source.
-- **Migration:** mỗi migration phải có bước `down`. Nếu migration mới làm hỏng dữ liệu, chạy `down` trước khi rollback code.
+- **Tự động:** xảy ra trong job `deploy` khi smoke test lỗi.
+- **Thủ công (khuyến nghị):** Actions → **Rollback** → Run workflow → nhập SHA đầy đủ hoặc tag (ví dụ `v1.0.0`). Workflow trỏ `production` về image đó, redeploy và smoke test.
+- **Khẩn cấp:** trên Railway, mở service → Deployments → chọn bản trước → Rollback (chỉ còn trong thời gian lưu của gói).
+- **Migration:** migration mới chỉ theo kiểu tương thích ngược; nếu cần hoàn tác dữ liệu, chạy `npm run migration:revert` (trong `apps/api`, với `DATABASE_URL` production) trước khi rollback code.
 
-Sau khi rollback, kiểm tra lại `GET /health` và luồng đặt đơn cơ bản.
+Sau rollback, kiểm tra `GET /health` (trường `version`) và luồng đặt đơn cơ bản.
 
 ## 5. Secret
 
@@ -48,3 +52,16 @@ Sau khi rollback, kiểm tra lại `GET /health` và luồng đặt đơn cơ b�
 - HTTPS và domain mặc định của Railway cho `web` và `api`.
 - Giới hạn lưu image rollback theo gói Hobby.
 - Chi phí thực tế sau một tuần chạy, so với ước tính trong ADR 007.
+
+## 7. Thiết lập lần đầu (một lần)
+
+**Railway**
+1. Tạo project; thêm **PostgreSQL** (không bật TCP proxy công khai).
+2. Thêm service `api` từ image `ghcr.io/<owner>/brewlite-api:production`; Variables: `DATABASE_URL=${{Postgres.DATABASE_URL}}`, `JWT_SECRET` (chuỗi ngẫu nhiên dài), `STAFF_API_KEY`, `WEB_ORIGIN=<URL web>`, `DB_SSL=false`. Health check path `/health`. Tạo domain công khai.
+3. Thêm service `web` từ image `ghcr.io/<owner>/brewlite-web:production`; tạo domain công khai.
+4. Tạo **Project Token** (Settings → Tokens).
+
+**GitHub** (Settings → Secrets and variables → Actions)
+- Secret `RAILWAY_TOKEN` = project token.
+- Variables `PROD_API_URL`, `PROD_WEB_URL` (dạng `https://...up.railway.app`, không có dấu `/` cuối).
+- Sau lần build đầu, vào Packages → `brewlite-api`/`brewlite-web` → Package settings → đặt **Public**.
