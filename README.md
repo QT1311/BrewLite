@@ -15,7 +15,8 @@ Công nghệ: **Next.js** (web, mobile-first) · **NestJS** (API) · **PostgreSQ
 - [x] Đặt đơn (server tự tính giá, giữ tồn kho bằng transaction + optimistic locking), thanh toán mock có Idempotency-Key, máy trạng thái đơn, trang thanh toán / xác nhận / theo dõi / lịch sử đơn — Bước 5
 - [x] Git + GitHub, ESLint, CI GitHub Actions (Lint & typecheck → Test → Build) — Bước 6
 - [x] Migration TypeORM thay `synchronize` (Task 5.2) — xem `docs/architecture/adr/008-migrations.md`
-- [ ] Docker Compose đầy đủ, CD, deploy production (các bước sau)
+- [x] Dockerfile (api, web) và Docker Compose đủ web + api + db (Task 5.3)
+- [ ] CD, deploy production (các bước sau)
 
 ## Quy trình làm việc
 
@@ -78,6 +79,21 @@ Demo nhân viên quầy cập nhật đơn (ở môi trường dev, staff key m�
 ```powershell
 curl.exe -X PATCH http://localhost:3001/orders/1/status -H "Content-Type: application/json" -H "x-staff-key: dev-staff-key" -d "{\"status\":\"PREPARING\"}"
 ```
+
+## Chạy toàn bộ bằng Docker (một lệnh)
+
+Yêu cầu: Docker Desktop đang chạy và file `.env` có `JWT_SECRET`, `STAFF_API_KEY` (sao chép từ `.env.example`).
+
+```bash
+docker compose up -d --build     # dựng db + api + web (lần đầu mất vài phút)
+docker compose ps                # các dịch vụ phải ở trạng thái healthy
+# Web: http://localhost:3000   API: http://localhost:3001/health
+docker compose logs -f api       # xem log API
+docker compose down              # dừng (giữ dữ liệu); thêm -v để xoá cả dữ liệu
+```
+
+API tự chạy migration và nạp dữ liệu mẫu khi khởi động. `NEXT_PUBLIC_API_URL` được nhúng vào bản build của web
+(đổi giá trị trong `.env` rồi chạy lại `docker compose up -d --build`).
 
 ## Migration cơ sở dữ liệu
 
