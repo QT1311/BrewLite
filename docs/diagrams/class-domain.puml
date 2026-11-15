@@ -1,0 +1,111 @@
+@startuml ClassDomain
+title Class-01 — Domain model BrewLite
+skinparam shadowing false
+skinparam defaultFontName "DejaVu Sans"
+skinparam classAttributeIconSize 0
+hide empty methods
+
+enum OrderStatus {
+  PENDING
+  PAID
+  PAYMENT_FAILED
+  PREPARING
+  READY
+  COMPLETED
+  CANCELLED
+}
+enum PaymentMethod {
+  EWALLET
+  CARD
+}
+enum PaymentStatus {
+  SUCCEEDED
+  FAILED
+}
+enum SizeCode {
+  S
+  M
+  L
+}
+
+class User {
+  +id: int <<PK>>
+  +email: string <<unique>>
+  +name: string
+  -passwordHash: string
+  +createdAt: timestamp
+}
+class Product {
+  +id: int <<PK>>
+  +name: string
+  +description: string
+  +price: int  «giá thấp nhất»
+  +sizePrices: Map<SizeCode,int> [0..1]
+  +allowToppings: boolean
+  +imageUrl: string
+  +category: string
+  +stock: int
+  +version: int  «optimistic lock»
+}
+class Order {
+  +id: int <<PK>>
+  +status: OrderStatus
+  +total: int
+  +createdAt: timestamp
+  +updatedAt: timestamp
+}
+class OrderItem {
+  +id: int <<PK>>
+  +productId: int
+  +name: string  «snapshot»
+  +size: SizeCode [0..1]
+  +toppings: string[]
+  +unitPrice: int  «snapshot»
+  +quantity: int [1..20]
+}
+class Payment {
+  +id: int <<PK>>
+  +idempotencyKey: string <<unique>>
+  +method: PaymentMethod
+  +amount: int
+  +status: PaymentStatus
+  +transactionRef: string [0..1]
+  +failureReason: string [0..1]
+  +createdAt: timestamp
+}
+class Promotion <<FR-18 · chưa hiện thực>> {
+  +code: string <<unique>>
+  +discountType: PERCENT | AMOUNT
+  +discountValue: int
+  +validFrom: date
+  +validTo: date
+  +active: boolean
+}
+class LoyaltyTransaction <<FR-18 · chưa hiện thực>> {
+  +id: int <<PK>>
+  +points: int
+  +reason: string
+  +createdAt: timestamp
+}
+
+User "1" -- "0..*" Order : đặt >
+User "1" -- "0..*" Payment : thực hiện >
+Order "1" *-- "1..*" OrderItem : gồm
+Order "1" -- "0..*" Payment : được thanh toán bởi >
+OrderItem "0..*" ..> "1" Product : tham chiếu (productId)
+Order "0..*" -- "0..1" Promotion : áp dụng >
+User "1" -- "0..*" LoyaltyTransaction : tích điểm
+LoyaltyTransaction "0..*" -- "0..1" Order : phát sinh từ >
+
+Order ..> OrderStatus
+Payment ..> PaymentMethod
+Payment ..> PaymentStatus
+OrderItem ..> SizeCode
+
+note bottom of Order
+  Chuyển trạng thái hợp lệ:
+  PENDING → PAID | PAYMENT_FAILED | CANCELLED
+  PAYMENT_FAILED → PAID | CANCELLED
+  PAID → PREPARING → READY → COMPLETED
+end note
+@enduml

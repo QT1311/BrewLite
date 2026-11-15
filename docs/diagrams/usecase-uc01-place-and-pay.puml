@@ -1,0 +1,30 @@
+@startuml UC01PlaceAndPay
+left to right direction
+skinparam packageStyle rect
+
+actor Customer
+actor "Payment Gateway\n(mock)" as PG
+
+rectangle "«System» BrewLite — phạm vi UC-01" {
+  usecase "UC-01\nĐặt và thanh toán đơn hàng" as UC01
+  usecase "Đăng nhập" as Login
+  usecase "Quản lý giỏ hàng" as Cart
+  usecase "Tạo đơn\n(giữ tồn kho)" as Place
+  usecase "Thanh toán\n(Idempotency-Key)" as Pay
+  usecase "Thử lại thanh toán" as Retry
+  usecase "Huỷ đơn chưa thanh toán" as Cancel
+  usecase "Theo dõi trạng thái đơn" as Track
+}
+
+Customer --> UC01
+UC01 ..> Login : <<include>>
+UC01 ..> Cart : <<include>>
+UC01 ..> Place : <<include>>
+UC01 ..> Pay : <<include>>
+UC01 ..> Track : <<include>>
+Retry .> Pay : <<extend>>\n[thanh toán thất bại]
+Cancel .> Place : <<extend>>\n[đơn PENDING / PAYMENT_FAILED]
+Pay --> PG
+Customer --> Retry
+Customer --> Cancel
+@enduml

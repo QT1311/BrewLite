@@ -1,0 +1,85 @@
+@startuml SequenceCheckout
+title Sequence-01 — UC-01 Đặt và thanh toán đơn hàng
+skinparam shadowing false
+skinparam defaultFontName "DejaVu Sans"
+skinparam sequenceMessageAlign left
+autonumber
+
+actor Customer as C
+participant "Next.js UI" as UI
+participant "NestJS API" as API
+database "PostgreSQL" as DB
+participant "Payment Service\n(mock)" as PAY
+
+== 1. Tạo đơn ==
+C -> UI : Bấm "Đặt đơn"
+UI -> API : POST /orders {items[{productId,size,toppings,quantity}]}\nAuthorization: Bearer <JWT>
+API -> API : JwtAuthGuard: kiểm tra JWT\nValidationPipe: validate DTO
+alt JWT sai / thiếu
+  API --> UI : 401 Unauthorized
+  UI --> C : Chuyển tới trang đăng nhập
+else dữ liệu sai
+  API --> UI : 400 Bad Request
+  UI --> C : Hiện lỗi
+else hợp lệ
+  API -> DB : BEGIN
+  loop mỗi sản phẩm (sắp theo id)
+    API -> DB : SELECT product
+    alt tồn kho không đủ
+      API -> DB : ROLLBACK
+      API --> UI : 409 Conflict (hết hàng / còn N)
+      UI --> C : Báo hết hàng
+    else đủ hàng
+      API -> DB : UPDATE products SET stock = stock - n,\nversion = version + 1 WHERE id AND version = v
+      note right of DB : affected = 0 → đọc lại và thử lại\n(optimistic locking, tối đa 5 lần)
+    end
+  end
+  API -> API : Tính đơn giá từ sizePrices + topping\nvà tổng tiền (bỏ qua giá client gửi)
+  API -> DB : INSERT orders (PENDING) + order_items
+  API -> DB : COMMIT
+  API --> UI : 201 Created {orderId, total, status: PENDING}
+  UI --> C : Chuyển tới trang thanh toán
+end
+
+== 2. Thanh toán ==
+C -> UI : Chọn phương thức, bấm "Thanh toán"
+UI -> UI : Sinh Idempotency-Key
+UI -> API : POST /payments {orderId, method}\nIdempotency-Key: <key>, Authorization: Bearer <JWT>
+API -> API : Kiểm tra JWT, validate, kiểm tra định dạng key
+API -> DB : SELECT payment WHERE idempotency_key = key
+alt key đã tồn tại (gửi lại)
+  DB --> API : payment cũ
+  API --> UI : 201 kết quả cũ (không gọi cổng thanh toán, không tạo giao dịch mới)
+else key mới
+  API -> DB : BEGIN; SELECT order FOR UPDATE (khoá dòng đơn)
+  alt đơn không thuộc khách
+    API --> UI : 404 Not Found
+  else đơn không còn ở PENDING / PAYMENT_FAILED
+    API --> UI : 409 Conflict
+  else cho phép thanh toán
+    API -> PAY : charge(amount, method)
+    alt thanh toán thành công
+      PAY --> API : success + transactionRef
+      API -> DB : INSERT payment (SUCCEEDED, key UNIQUE)\nUPDATE orders SET status = PAID
+      API -> DB : COMMIT
+      API --> UI : 201 {status: SUCCEEDED, orderStatus: PAID}
+      UI -> UI : Xoá giỏ hàng
+      UI --> C : Màn hình xác nhận (mã đơn, PAID)
+    else thanh toán thất bại
+      PAY --> API : failure + lý do
+      API -> DB : INSERT payment (FAILED)\nUPDATE orders SET status = PAYMENT_FAILED
+      API -> DB : COMMIT
+      API --> UI : 201 {status: FAILED, orderStatus: PAYMENT_FAILED}
+      UI --> C : Hiện lý do, cho thử lại hoặc huỷ đơn
+    end
+  end
+end
+
+== 3. Theo dõi đơn ==
+loop mỗi 5 giây cho tới khi COMPLETED / CANCELLED
+  UI -> API : GET /orders/:id (JWT)
+  API -> DB : SELECT order (chỉ của khách này)
+  API --> UI : {status}
+  UI --> C : Cập nhật trạng thái (PAID → PREPARING → READY → COMPLETED)
+end
+@enduml

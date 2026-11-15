@@ -1,0 +1,97 @@
+@startuml ActivityCheckout
+title Activity-01 — Luồng end-to-end: từ xem menu đến nhận xác nhận đơn
+skinparam shadowing false
+skinparam defaultFontName "DejaVu Sans"
+skinparam ActivityBackgroundColor #FFF7FB
+skinparam ActivityBorderColor #C0397B
+skinparam ArrowColor #444444
+skinparam swimlaneTitleFontStyle bold
+
+|Khách hàng|
+start
+:Mở trang chủ, xem menu;
+|Giao diện (Next.js)|
+:Gọi GET /products, hiển thị theo nhóm\n(lọc chip / tìm kiếm);
+|Khách hàng|
+:Chọn món;
+|Giao diện (Next.js)|
+:Hiển thị chi tiết, size (giá theo size), topping;
+|Khách hàng|
+:Chọn size / topping / số lượng,\nbấm "Thêm vào giỏ";
+|Giao diện (Next.js)|
+:Cập nhật giỏ hàng (localStorage)\nvà tính lại tổng tiền;
+|Khách hàng|
+:Mở giỏ hàng, sửa số lượng / xoá dòng;
+:Bấm "Đặt đơn";
+|Giao diện (Next.js)|
+if (Đã đăng nhập?) then (chưa)
+  :Chuyển tới /login?next=/cart;
+  |Khách hàng|
+  :Đăng nhập hoặc đăng ký;
+  |API (NestJS)|
+  :Xác thực, trả JWT;
+  |Giao diện (Next.js)|
+  :Lưu JWT, quay lại giỏ hàng;
+else (rồi)
+endif
+:Gửi POST /orders kèm JWT;
+|API (NestJS)|
+if (JWT hợp lệ và dữ liệu hợp lệ?) then (không)
+  :Trả 401 / 400;
+  |Giao diện (Next.js)|
+  :Báo lỗi cho khách;
+  stop
+else (có)
+endif
+:Mở transaction; kiểm tra và trừ tồn kho từng món\n(optimistic locking);
+if (Đủ hàng?) then (hết hàng)
+  :Rollback, trả 409\nkèm tên món và số còn lại;
+  |Giao diện (Next.js)|
+  :Báo hết hàng, khách sửa giỏ;
+  stop
+else (đủ)
+endif
+|API (NestJS)|
+:Tính đơn giá + tổng tiền từ dữ liệu server;
+:Lưu đơn PENDING, commit;
+|Giao diện (Next.js)|
+:Chuyển tới trang thanh toán /checkout/:id;
+|Khách hàng|
+repeat
+  :Chọn Ví điện tử / Thẻ,\nbấm "Thanh toán";
+  |Giao diện (Next.js)|
+  :Sinh Idempotency-Key, gửi POST /payments;
+  |API (NestJS)|
+  if (Key đã dùng?) then (rồi)
+    :Trả lại kết quả cũ,\nkhông tạo giao dịch mới;
+  else (chưa)
+    :Khoá dòng đơn, kiểm tra trạng thái\n(PENDING hoặc PAYMENT_FAILED);
+    |Cổng thanh toán (mock)|
+    :Xử lý giao dịch;
+    |API (NestJS)|
+  endif
+  if (Thanh toán thành công?) then (thất bại)
+    :Lưu giao dịch FAILED,\nđơn → PAYMENT_FAILED;
+    |Giao diện (Next.js)|
+    :Hiển thị lý do, giữ giỏ hàng;
+    |Khách hàng|
+    if (Khách chọn?) then (huỷ đơn)
+      |API (NestJS)|
+      :Đơn → CANCELLED, hoàn tồn kho;
+      |Giao diện (Next.js)|
+      :Thông báo đã huỷ;
+      stop
+    else (thử lại)
+    endif
+  else (thành công)
+    |API (NestJS)|
+    :Lưu giao dịch SUCCEEDED,\nđơn → PAID;
+  endif
+repeat while (Chưa PAID?) is (thử lại)
+|Giao diện (Next.js)|
+:Xoá giỏ hàng, hiện màn hình xác nhận\n(mã đơn, trạng thái);
+:Làm mới trạng thái mỗi 5 giây;
+|Khách hàng|
+:Thấy đơn READY, đến quầy nhận đồ uống;
+stop
+@enduml

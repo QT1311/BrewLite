@@ -1,0 +1,5 @@
+# Chuẩn hoá xuống dòng (LF) để không bị "đổi toàn bộ file" khi làm trên Windows
+* text=auto eol=lf
+*.png binary
+*.jpg binary
+*.ico binary

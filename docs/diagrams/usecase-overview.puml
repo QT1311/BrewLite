@@ -1,0 +1,39 @@
+@startuml UseCaseOverview
+left to right direction
+skinparam packageStyle rect
+
+actor Customer
+actor "Payment Gateway\n(mock)" as PG
+
+rectangle "«System» BrewLite" {
+  usecase "View Menu" as UC1
+  usecase "View Product Detail" as UC2
+  usecase "Manage Cart" as UC3
+  usecase "Register" as UC4
+  usecase "Login" as UC5
+  usecase "Place Order" as UC6
+  usecase "Make Payment" as UC7
+  usecase "View Order History" as UC8
+  usecase "Track Order Status" as UC9
+}
+
+Customer --> UC1
+Customer --> UC2
+Customer --> UC3
+Customer --> UC4
+Customer --> UC5
+Customer --> UC6
+Customer --> UC8
+Customer --> UC9
+
+UC6 ..> UC7 : <<include>>
+UC7 --> PG
+
+UC2 .> UC1 : <<extend>>
+UC3 ..> UC6 : <<include>>
+
+note right of UC7
+  Make Payment yêu cầu
+  Login trước đó (precondition)
+end note
+@enduml

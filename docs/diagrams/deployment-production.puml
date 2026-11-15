@@ -1,0 +1,85 @@
+@startuml DeploymentProduction
+title Deployment-01 — Môi trường production trên Railway (kèm ranh giới local / CI)
+skinparam shadowing false
+skinparam defaultFontName "DejaVu Sans"
+skinparam nodesep 40
+skinparam ranksep 60
+
+node "Thiết bị người dùng" as Device {
+  artifact "Trình duyệt / PWA" as Browser
+}
+
+node "GitHub" as GH {
+  artifact "Repository\n(main, tag vX.Y.Z)" as Repo
+  node "GitHub Actions" as CI {
+    artifact "Lint → Test → Build" as QG
+    artifact "docker build\n(tag = commit SHA / semver)" as Build
+  }
+  artifact "Release notes\n(tag)" as Rel
+}
+
+node "Container registry\n(GHCR)" as Registry {
+  artifact "brewlite-web:<sha>" as ImgWeb
+  artifact "brewlite-api:<sha>" as ImgApi
+}
+
+cloud "Railway (production)" as Railway {
+  node "Service: web" as SWeb {
+    component "Next.js 15\n(container, PORT)" as NextApp
+  }
+  node "Service: api" as SApi {
+    component "NestJS 11\n(container, API_PORT)" as NestApp
+    component "GET /health" as Health
+    component "Migration\n(one-off, trước khi chạy API)" as Mig
+  }
+  database "Service: postgres" as PG {
+    component "PostgreSQL 16" as PGInst
+    storage "Volume bền vững" as Vol
+  }
+  component "Biến môi trường / secret\n(JWT_SECRET, POSTGRES_*,\nSTAFF_API_KEY, WEB_ORIGIN)" as Secrets
+}
+
+cloud "Cổng thanh toán (mock)\nnằm trong API" as Pay
+
+' Local
+node "Máy phát triển (local)" as Local {
+  component "docker-compose: db\n(web/api chạy trực tiếp)" as LocalDB
+}
+
+' Luồng build và deploy
+Repo --> CI : push / tag
+QG --> Build : pass
+Build --> ImgWeb : push
+Build --> ImgApi : push
+CI ..> Railway : trigger deploy\n(Railway pull image)
+ImgWeb ..> SWeb : pull
+ImgApi ..> SApi : pull
+Rel ..> Repo : gắn tag
+
+' Truy cập
+Browser -[#C0397B]-> NextApp : HTTPS 443\n(TLS do Railway cấp)
+Browser -[#C0397B]-> NestApp : HTTPS 443\n(CORS = WEB_ORIGIN)
+NextApp --> NestApp : HTTPS (NEXT_PUBLIC_API_URL)
+NestApp --> PGInst : TCP 5432\n(mạng nội bộ Railway,\nkhông public)
+NestApp --> Pay : gọi nội bộ (mock)
+Mig --> PGInst : TCP 5432
+Health ..> PGInst : SELECT 1
+PGInst --> Vol : ghi dữ liệu
+Secrets ..> NestApp
+Secrets ..> NextApp
+
+' Giám sát
+Railway ..> Health : health check\n(khởi động lại nếu lỗi)
+NestApp ..> Railway : log stdout\n(xem trên dashboard)
+
+note bottom of Railway
+  Rollback: đưa service về image/deployment trước đó
+  trên Railway, hoặc deploy lại tag trước trong CI.
+  Smoke test sau deploy: GET /health và GET /products.
+end note
+
+note right of PG
+  Database không có domain công khai.
+  Chỉ api truy cập được qua mạng nội bộ.
+end note
+@enduml
