@@ -17,7 +17,8 @@ Công nghệ: **Next.js** (web, mobile-first) · **NestJS** (API) · **PostgreSQ
 - [x] Migration TypeORM thay `synchronize` (Task 5.2) — xem `docs/architecture/adr/008-migrations.md`
 - [x] Dockerfile (api, web) và Docker Compose đủ web + api + db (Task 5.3)
 - [x] Kiểm thử E2E giao diện bằng Playwright, chạy trong CI trên hệ thống Docker Compose (Task 5.2)
-- [ ] CD, deploy production (các bước sau)
+- [x] CD (GitHub Actions → GHCR → Railway), smoke test, rollback (Task 5.3, ADR 009)
+- [x] Production chạy trên Railway: https://web-production-97f35c81.up.railway.app
 
 ## Quy trình làm việc
 
@@ -143,8 +144,29 @@ npm run build       # build api + web
 
 - Nhánh `main` luôn ở trạng thái chạy được; mỗi chức năng làm trên nhánh riêng `feature/<tên>` rồi mở Pull Request vào `main`.
 - Commit theo dạng `<loại>: <mô tả>` (Conventional Commits), ví dụ `feat(api): thêm POST /orders`, `docs: thêm ADR-001`, `fix(web): ...`, `test: ...`, `ci: ...`.
-- GitHub Actions (`.github/workflows/ci.yml`) chạy 3 job nối tiếp **Lint & typecheck → Test (unit + integration trên PostgreSQL) → Build** cho mỗi push/PR vào `main`.
-- Nhánh `main` được bảo vệ: PR chỉ merge được khi cả 3 job xanh (NFR-08).
+- GitHub Actions (`.github/workflows/ci.yml`) chạy **Lint & typecheck → Test (unit + integration trên PostgreSQL) → Build → E2E** cho mỗi Pull Request vào `main`; khi push `main` hoặc tag, `cd.yml` gọi lại CI rồi deploy.
+- Nhánh `main` được bảo vệ: PR chỉ merge được khi các job CI xanh (NFR-08).
+
+## Deploy, rollback và phát hành
+
+Production chạy trên Railway (web, api, PostgreSQL không public). Chi tiết: [`docs/deployment.md`](docs/deployment.md), [ADR 009](docs/architecture/adr/009-cd-rollback.md).
+
+**Deploy:** merge PR vào `main` hoặc đẩy tag. Workflow **CD** chạy Lint + Test → build image → đẩy GHCR (tag là commit SHA) → deploy Railway → smoke test (`scripts/smoke-test.sh`). Smoke test lỗi thì tự rollback về bản trước.
+
+**Rollback thủ công:** GitHub → Actions → **Rollback** → Run workflow → nhập commit SHA đầy đủ hoặc tag (ví dụ `v1.0.0`).
+
+**Phát hành bản mới:**
+
+```bash
+git tag v1.0.0
+git push origin v1.0.0     # CD build image gắn tag v1.0.0 và deploy
+```
+
+Sau đó tạo GitHub Release từ tag, dùng nội dung trong `docs/release-notes/`.
+
+**Kiểm tra sau deploy:** `GET <API>/health` trả `status: ok`, `database: up` và `version` là commit đang chạy.
+
+**Secret:** không có trong repo. `RAILWAY_TOKEN` ở GitHub Secrets; `JWT_SECRET`, `STAFF_API_KEY`, `DATABASE_URL` ở Railway Variables.
 
 ## Kiểm thử
 
