@@ -20,8 +20,8 @@ Mỗi dòng dưới đây là một GitHub Issue (dùng mẫu `user-story`), g�
 | S1-08 | Trạng thái loading / empty / error của menu | FR-01 | S | Skeleton khi tải; thông báo rỗng; lỗi + nút thử lại | Done |
 | S1-09 | Test tối thiểu API + component | — | M | Unit test `ProductsService`, `ProductList`; e2e menu | Done |
 | S1-10 | CI: Install → Lint → Unit Test → Build | NFR-08 | M | PR lỗi lint/test/build báo đỏ | Done |
-| S1-11 | Bảo vệ nhánh `main` (required checks) | NFR-08 | S | PR đỏ không có nút merge | Cần bật trên GitHub |
-| S1-12 | Minh chứng CI: 1 PR xanh + 1 PR đỏ | NFR-08 | S | Link PR + ảnh/log | Cần thực hiện |
+| S1-11 | Bảo vệ nhánh `main` (required checks) | NFR-08 | S | PR đỏ không có nút merge | Done |
+| S1-12 | Minh chứng CI: 1 PR xanh + 1 PR đỏ | NFR-08 | S | Link PR + ảnh/log | Done |
 
 ## Sprint 2 – Hoàn thiện luồng end-to-end, CI/CD, production (Task 5)
 
@@ -36,7 +36,7 @@ Mỗi dòng dưới đây là một GitHub Issue (dùng mẫu `user-story`), g�
 | S2-05 | Thanh toán Ví/Thẻ mô phỏng + idempotency | FR-11–13 | L | Cùng Idempotency-Key chỉ 1 giao dịch | Done |
 | S2-06 | Xác nhận, trạng thái, lịch sử đơn | FR-14–16 | M | Theo dõi trạng thái, state machine | Done |
 | S2-07 | Validate + xử lý lỗi frontend/backend | NFR-03 | M | Payload sai → 400 thông điệp rõ | Done |
-| S2-08 | Migration thay `synchronize` + seed | — | M | Chạy migration tự động khi khởi động | To do |
+| S2-08 | Migration thay `synchronize` + seed | — | M | Chạy migration tự động khi khởi động | Done |
 | S2-09 | Dockerfile + Docker Compose web+api+db | NFR-06 | M | `docker compose up` chạy đủ hệ thống | To do |
 | S2-10 | Kiểm thử E2E giao diện luồng chính | — | M | Mua hàng thành công + thanh toán lỗi | To do |
 | S2-11 | CD: build image → GHCR → deploy Railway → smoke test | — | L | Merge `main` tự triển khai, smoke test `/health` | To do |

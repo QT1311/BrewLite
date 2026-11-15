@@ -6,6 +6,7 @@ import { HealthController } from './health/health.controller';
 import { AuthModule } from './auth/auth.module';
 import { OrdersModule } from './orders/orders.module';
 import { PaymentsModule } from './payments/payments.module';
+import { buildDataSourceOptions } from './database/database.config';
 
 @Module({
   imports: [
@@ -14,15 +15,18 @@ import { PaymentsModule } from './payments/payments.module';
     TypeOrmModule.forRootAsync({
       inject: [ConfigService],
       useFactory: (config: ConfigService) => ({
-        type: 'postgres',
-        host: config.get('POSTGRES_HOST', 'localhost'),
-        port: Number(config.get('POSTGRES_PORT', 5432)),
-        username: config.get('POSTGRES_USER', 'brewlite'),
-        password: config.get('POSTGRES_PASSWORD', 'brewlite_dev_password'),
-        database: config.get('POSTGRES_DB', 'brewlite'),
+        ...buildDataSourceOptions({
+          DATABASE_URL: config.get('DATABASE_URL'),
+          DB_SSL: config.get('DB_SSL'),
+          DB_MIGRATIONS_RUN: config.get('DB_MIGRATIONS_RUN'),
+          DB_SYNCHRONIZE: config.get('DB_SYNCHRONIZE'),
+          POSTGRES_HOST: config.get('POSTGRES_HOST'),
+          POSTGRES_PORT: config.get('POSTGRES_PORT'),
+          POSTGRES_USER: config.get('POSTGRES_USER'),
+          POSTGRES_PASSWORD: config.get('POSTGRES_PASSWORD'),
+          POSTGRES_DB: config.get('POSTGRES_DB'),
+        }),
         autoLoadEntities: true,
-        // Chỉ dùng ở giai đoạn phát triển. Khi lên production sẽ thay bằng migration (Task 5.2).
-        synchronize: config.get('NODE_ENV') !== 'production',
       }),
     }),
     ProductsModule,

@@ -15,7 +15,7 @@ Dùng **PostgreSQL 16** và **TypeORM 0.3** qua `@nestjs/typeorm`. Entity khai b
 - PostgreSQL có UNIQUE index và transaction đầy đủ, cần cho idempotency (ADR 006).
 
 ## Hệ quả
-- `synchronize` chỉ dùng cho môi trường phát triển. Trên production phải dùng migration có version; đây là việc còn lại của Task 5.2.
+- Schema được quản lý bằng migration có version (xem ADR 008); `synchronize` mặc định tắt.
 - Phụ thuộc vào hành vi của TypeORM khi sinh SQL; các truy vấn quan trọng được kiểm chứng bằng integration test.
 
 ## Phương án đã cân nhắc
