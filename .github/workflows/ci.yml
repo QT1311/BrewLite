@@ -1,4 +1,4 @@
-# CI cho BrewLite (Task 4.4): Lint → Test → Build.
+# CI cho BrewLite (Task 4.4 + 5.2): Lint → Test → Build → E2E (Docker Compose + Playwright).
 # Chạy khi push lên main và khi mở/cập nhật Pull Request vào main.
 # Bật "Require status checks to pass" cho nhánh main để PR lỗi không merge được (NFR-08).
 name: CI
@@ -84,3 +84,41 @@ jobs:
           cache: npm
       - run: npm ci
       - run: npm run build
+
+  e2e:
+    name: E2E (Docker Compose + Playwright)
+    needs: build
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    env:
+      JWT_SECRET: ci-only-jwt-secret
+      STAFF_API_KEY: ci-only-staff-key
+      CI: "true"
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
+      - run: npm ci
+      - name: Dựng web + api + db bằng Docker Compose
+        run: docker compose up -d --build --wait --wait-timeout 300
+      - name: Cài trình duyệt Playwright
+        run: npx playwright install --with-deps chromium
+      - name: Chạy kiểm thử E2E giao diện
+        run: npm run test:ui
+      - name: Lưu báo cáo khi E2E thất bại
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-report
+          path: |
+            playwright-report/
+            test-results/
+          retention-days: 7
+      - name: Log container khi thất bại
+        if: failure()
+        run: docker compose logs --no-color --tail 200
+      - name: Dọn dẹp
+        if: always()
+        run: docker compose down -v
