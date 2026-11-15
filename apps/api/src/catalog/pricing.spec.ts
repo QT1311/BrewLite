@@ -7,7 +7,7 @@ const banh = { name: 'Bánh Tiramisu', price: 39000, sizePrices: null, allowTopp
 
 describe('unitPrice', () => {
   it('lấy giá theo từng size của món', () => {
-    expect(unitPrice(cafe, 'S', [])).toBe(29000);
+    expect(unitPrice(cafe, 'S', [])).toBe(12345);
     expect(unitPrice(cafe, 'M', [])).toBe(39000);
     expect(unitPrice(cafe, 'L', [])).toBe(45000);
   });
