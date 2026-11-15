@@ -28,6 +28,8 @@ RUN npm ci --workspace apps/api --omit=dev && npm cache clean --force
 COPY --from=build /app/apps/api/dist ./apps/api/dist
 WORKDIR /app/apps/api
 USER node
+ARG GIT_SHA=dev
+ENV APP_VERSION=$GIT_SHA
 ENV API_PORT=3001
 EXPOSE 3001
 HEALTHCHECK --interval=15s --timeout=3s --start-period=20s --retries=5 \

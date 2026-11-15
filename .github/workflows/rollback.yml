@@ -1,0 +1,55 @@
+# Rollback thủ công (Task 5.3): đưa production về một commit SHA hoặc tag đã build trước đó.
+# Dùng: Actions → Rollback → Run workflow → nhập SHA đầy đủ (40 ký tự) hoặc tag vX.Y.Z.
+name: Rollback
+
+on:
+  workflow_dispatch:
+    inputs:
+      ref:
+        description: 'Commit SHA đầy đủ hoặc tag (vd v1.0.0) của image cần khôi phục'
+        required: true
+
+permissions:
+  contents: read
+
+concurrency:
+  group: cd-production
+  cancel-in-progress: false
+
+jobs:
+  rollback:
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: read
+      packages: write
+    env:
+      RAILWAY_TOKEN: ${{ secrets.RAILWAY_TOKEN }}
+      PROD_API_URL: ${{ vars.PROD_API_URL }}
+      PROD_WEB_URL: ${{ vars.PROD_WEB_URL }}
+      TARGET: ${{ inputs.ref }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: docker/setup-buildx-action@v3
+      - uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Đưa tag production về bản đã chọn
+        run: |
+          OWNER="${GITHUB_REPOSITORY_OWNER,,}"
+          for svc in api web; do
+            IMG="ghcr.io/$OWNER/brewlite-$svc"
+            docker buildx imagetools inspect "$IMG:$TARGET" >/dev/null
+            docker buildx imagetools create --tag "$IMG:production" "$IMG:$TARGET"
+            npx -y @railway/cli@latest redeploy --service "$svc" --yes
+          done
+
+      - name: Smoke test (không kiểm tra version nếu đích là tag)
+        run: |
+          if [[ "$TARGET" =~ ^[0-9a-f]{40}$ ]]; then
+            scripts/smoke-test.sh "$PROD_API_URL" "$PROD_WEB_URL" "$TARGET"
+          else
+            scripts/smoke-test.sh "$PROD_API_URL" "$PROD_WEB_URL"
+          fi

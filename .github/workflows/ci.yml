@@ -4,10 +4,9 @@
 name: CI
 
 on:
-  push:
-    branches: [main]
   pull_request:
     branches: [main]
+  workflow_call: # cd.yml gọi lại CI làm cổng chất lượng trước khi deploy
 
 concurrency:
   group: ci-${{ github.ref }}
