@@ -61,3 +61,54 @@ test.describe('Luồng mua hàng end-to-end', () => {
     await expect(page.getByText('Đã thanh toán').first()).toBeVisible();
   });
 });
+
+test.describe('Nhân viên quầy và quản trị', () => {
+  const adminEmail = process.env.E2E_ADMIN_EMAIL;
+  const adminPassword = process.env.E2E_ADMIN_PASSWORD;
+  test.skip(!adminEmail || !adminPassword, 'Đặt E2E_ADMIN_EMAIL và E2E_ADMIN_PASSWORD (trùng ADMIN_EMAIL/ADMIN_PASSWORD của API) để chạy');
+
+  async function login(page: import('@playwright/test').Page, email: string, password: string) {
+    await page.goto('/login');
+    await page.getByLabel('Email').fill(email);
+    await page.getByLabel('Mật khẩu').fill(password);
+    await page.getByRole('button', { name: 'Đăng nhập' }).click();
+  }
+
+  test('admin tạo nhân viên → khách đặt và trả → nhân viên nhận đơn và bắt đầu pha', async ({ page }) => {
+    const staffEmail = `e2e-staff-${Date.now()}-${Math.random().toString(36).slice(2, 8)}@test.local`;
+    const staffPassword = 'matkhau-nhanvien-1';
+
+    // 1) Admin đăng nhập, vào trang quản trị và tạo tài khoản nhân viên
+    await login(page, adminEmail!, adminPassword!);
+    await expect(page).toHaveURL(/\/admin$/);
+    await expect(page.getByTestId('stat-revenue')).toBeVisible();
+    await page.getByRole('tab', { name: 'Nhân viên' }).click();
+    await page.getByLabel('Tên', { exact: true }).fill('Nhân viên E2E');
+    await page.getByLabel('Email').fill(staffEmail);
+    await page.getByLabel('Mật khẩu ban đầu').fill(staffPassword);
+    await page.getByRole('button', { name: 'Tạo nhân viên' }).click();
+    await expect(page.getByTestId('staff-row').filter({ hasText: staffEmail })).toBeVisible();
+    await page.getByRole('button', { name: 'Đăng xuất' }).click();
+
+    // 2) Khách đặt và thanh toán một đơn
+    await registerNewUser(page);
+    await addFirstProductToCart(page);
+    await placeOrderFromCart(page);
+    const orderId = page.url().match(/\/checkout\/(\d+)/)![1];
+    await page.getByRole('button', { name: /Xác nhận trả/ }).click();
+    await expect(page.getByRole('heading', { name: 'Đặt hàng thành công' })).toBeVisible();
+
+    // 3) Khách hàng không vào được trang quầy
+    await page.goto('/staff');
+    await expect(page.getByText('Bạn không có quyền truy cập')).toBeVisible();
+    await page.getByRole('button', { name: 'Đăng xuất' }).click();
+
+    // 4) Nhân viên đăng nhập, thấy đơn ở cột "Mới" và chuyển sang "Đang pha"
+    await login(page, staffEmail, staffPassword);
+    await expect(page).toHaveURL(/\/staff$/);
+    const ticket = page.getByTestId('col-PAID').getByTestId('ticket').filter({ hasText: `Đơn #${orderId}` });
+    await expect(ticket).toBeVisible();
+    await ticket.getByRole('button', { name: 'Bắt đầu pha' }).click();
+    await expect(page.getByTestId('col-PREPARING').getByTestId('ticket').filter({ hasText: `Đơn #${orderId}` })).toBeVisible();
+  });
+});

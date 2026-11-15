@@ -45,6 +45,18 @@ Mỗi dòng dưới đây là một GitHub Issue (dùng mẫu `user-story`), g�
 | S2-14 | `docs/traceability-matrix.md`, video demo, Sprint Review/Retro | — | M | Truy vết FR → UC → sơ đồ → code → test | To do |
 | S2-15 | (Could) Khuyến mãi và điểm thưởng | FR-18 | L | Mã hợp lệ giảm đúng tiền | Backlog |
 
+## Sprint 3 – Mở rộng nhân viên và quản trị (sau v1.0.0)
+
+**Sprint Goal:** nhân viên xử lý đơn trên màn hình quầy; admin xem doanh thu và quản lý món, tài khoản nhân viên.
+
+| # | Issue | Yêu cầu | Cỡ | Tiêu chí chấp nhận (tóm tắt) | Trạng thái |
+|---|---|---|---|---|---|
+| S3-01 | Vai trò customer/staff/admin, RolesGuard, seed admin từ biến môi trường | FR-19 | M | Token khách vào route staff/admin bị 403; tài khoản khoá mất quyền ngay | Done |
+| S3-02 | Màn hình quầy `/staff` | FR-20 | M | Thấy đơn PAID/PREPARING/READY, bấm nút chuyển trạng thái | Done |
+| S3-03 | Dashboard doanh thu admin | FR-21 | M | Chỉ tính giao dịch thành công, theo giờ Việt Nam | Done |
+| S3-04 | Admin xem mọi đơn, quản lý tồn kho và ngưng bán món | FR-22 | M | Món ngưng bán ẩn khỏi menu và không đặt được | Done |
+| S3-05 | Admin tạo và khoá tài khoản nhân viên | FR-23 | M | Staff bị khoá mất quyền ngay | Done |
+
 ## Ghi chú
 - Trạng thái "Done" phản ánh mã nguồn đã có sẵn trong repo tại thời điểm Sprint 1; khi đưa lên GitHub,
   tạo issue và đóng bằng PR tương ứng để lịch sử khớp.

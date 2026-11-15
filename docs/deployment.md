@@ -15,7 +15,7 @@
 | Service | Nguồn | Port | Biến môi trường chính | Health check |
 |---|---|---|---|---|
 | `web` | Image `brewlite-web:<sha>` từ GHCR | `PORT` (Railway cấp) | `NEXT_PUBLIC_API_URL` | `GET /` |
-| `api` | Image `brewlite-api:<sha>` từ GHCR | `API_PORT` | `JWT_SECRET`, `JWT_EXPIRES_IN`, `STAFF_API_KEY`, `WEB_ORIGIN`, `POSTGRES_*` | `GET /health` |
+| `api` | Image `brewlite-api:<sha>` từ GHCR | `API_PORT` | `JWT_SECRET`, `JWT_EXPIRES_IN`, `ADMIN_EMAIL`, `ADMIN_PASSWORD`, `WEB_ORIGIN`, `POSTGRES_*` | `GET /health` |
 | `postgres` | Dịch vụ PostgreSQL của Railway | 5432 (nội bộ) | `POSTGRES_USER`, `POSTGRES_PASSWORD`, `POSTGRES_DB` | `pg_isready` (nền tảng) |
 
 **Lưu ý:** `NEXT_PUBLIC_API_URL` được nhúng vào bundle lúc build, nên đổi URL API phải build lại image web.
@@ -45,7 +45,7 @@ Sau rollback, kiểm tra `GET /health` (trường `version`) và luồng đặt 
 
 - Không có secret trong repository hay log CI. Giá trị thật chỉ nằm trong Railway Variables và GitHub Secrets.
 - `.env.example` chỉ chứa giá trị mẫu.
-- Khoá `STAFF_API_KEY` và `JWT_SECRET` phải được đổi khỏi giá trị mặc định trước khi chạy production.
+- `JWT_SECRET` phải là chuỗi ngẫu nhiên dài; `ADMIN_PASSWORD` phải là mật khẩu mạnh. Biến `STAFF_API_KEY` cũ không còn được dùng (ADR 010) và có thể xoá.
 
 ## 6. Việc cần xác minh khi triển khai
 
@@ -57,7 +57,7 @@ Sau rollback, kiểm tra `GET /health` (trường `version`) và luồng đặt 
 
 **Railway**
 1. Tạo project; thêm **PostgreSQL** (không bật TCP proxy công khai).
-2. Thêm service `api` từ image `ghcr.io/<owner>/brewlite-api:production`; Variables: `DATABASE_URL=${{Postgres.DATABASE_URL}}`, `JWT_SECRET` (chuỗi ngẫu nhiên dài), `STAFF_API_KEY`, `WEB_ORIGIN=<URL web>`, `DB_SSL=false`. Health check path `/health`. Tạo domain công khai.
+2. Thêm service `api` từ image `ghcr.io/<owner>/brewlite-api:production`; Variables: `DATABASE_URL=${{Postgres.DATABASE_URL}}`, `JWT_SECRET` (chuỗi ngẫu nhiên dài), `ADMIN_EMAIL`, `ADMIN_PASSWORD`, `WEB_ORIGIN=<URL web>`, `DB_SSL=false`. Health check path `/health`. Tạo domain công khai.
 3. Thêm service `web` từ image `ghcr.io/<owner>/brewlite-web:production`; tạo domain công khai.
 4. Tạo **Project Token** (Settings → Tokens).
 

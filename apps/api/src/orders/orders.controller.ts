@@ -1,6 +1,8 @@
 import { Body, Controller, Get, HttpCode, Param, ParseIntPipe, Patch, Post, Req, UseGuards } from '@nestjs/common';
 import { AuthedRequest, JwtAuthGuard } from '../auth/jwt-auth.guard';
-import { StaffKeyGuard } from '../common/staff-key.guard';
+import { Roles } from '../auth/roles.decorator';
+import { RolesGuard } from '../auth/roles.guard';
+import { UserRole } from '../users/user-role';
 import { CreateOrderDto, UpdateStatusDto } from './dto/create-order.dto';
 import { OrderStatus } from './order-status';
 import { OrdersService } from './orders.service';
@@ -35,7 +37,8 @@ export class OrdersController {
   }
 
   @Patch(':id/status')
-  @UseGuards(StaffKeyGuard)
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(UserRole.STAFF, UserRole.ADMIN)
   advance(@Param('id', ParseIntPipe) id: number, @Body() dto: UpdateStatusDto) {
     return this.orders.advance(id, dto.status as OrderStatus);
   }

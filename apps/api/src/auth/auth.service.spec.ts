@@ -1,9 +1,10 @@
-import { ConflictException, UnauthorizedException } from '@nestjs/common';
+import { ConflictException, ForbiddenException, UnauthorizedException } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import { Test } from '@nestjs/testing';
 import { getRepositoryToken } from '@nestjs/typeorm';
 import * as bcrypt from 'bcryptjs';
 import { User } from '../users/user.entity';
+import { UserRole } from '../users/user-role';
 import { AuthService } from './auth.service';
 
 describe('AuthService', () => {
@@ -35,7 +36,7 @@ describe('AuthService', () => {
     expect(saved.email).toBe('a@b.com');
     expect(saved.passwordHash).not.toBe('matkhau123');
     expect(await bcrypt.compare('matkhau123', saved.passwordHash)).toBe(true);
-    expect(res.user).toEqual({ id: 7, email: 'a@b.com', name: 'An' });
+    expect(res.user).toEqual({ id: 7, email: 'a@b.com', name: 'An', role: UserRole.CUSTOMER });
     expect((await jwt.verifyAsync(res.accessToken)).sub).toBe(7);
     expect(JSON.stringify(res)).not.toContain('passwordHash');
   });
@@ -49,19 +50,31 @@ describe('AuthService', () => {
 
   it('đăng nhập đúng → JWT hợp lệ', async () => {
     const passwordHash = await bcrypt.hash('matkhau123', 4);
-    repo.findOne.mockResolvedValue({ id: 3, email: 'a@b.com', name: 'An', passwordHash });
+    repo.findOne.mockResolvedValue({ id: 3, email: 'a@b.com', name: 'An', passwordHash, role: UserRole.CUSTOMER, isActive: true });
     const res = await service.login({ email: 'A@b.com', password: 'matkhau123' });
     expect((await jwt.verifyAsync(res.accessToken)).sub).toBe(3);
   });
 
   it('đăng nhập sai mật khẩu hoặc sai email → 401 cùng thông báo', async () => {
     const passwordHash = await bcrypt.hash('matkhau123', 4);
-    repo.findOne.mockResolvedValueOnce({ id: 3, email: 'a@b.com', name: 'An', passwordHash });
+    repo.findOne.mockResolvedValueOnce({ id: 3, email: 'a@b.com', name: 'An', passwordHash, role: UserRole.CUSTOMER, isActive: true });
     const wrongPw = await service.login({ email: 'a@b.com', password: 'saimatkhau' }).catch((e) => e);
     repo.findOne.mockResolvedValueOnce(null);
     const wrongEmail = await service.login({ email: 'x@b.com', password: 'matkhau123' }).catch((e) => e);
     expect(wrongPw).toBeInstanceOf(UnauthorizedException);
     expect(wrongEmail).toBeInstanceOf(UnauthorizedException);
     expect(wrongPw.message).toBe(wrongEmail.message);
+  });
+
+  it('đăng ký công khai luôn tạo khách hàng, bỏ qua mọi vai trò client gửi lên', async () => {
+    repo.findOne.mockResolvedValue(null);
+    await service.register({ email: 'x@b.com', name: 'X', password: 'matkhau123', role: 'admin' } as never);
+    expect(repo.save.mock.calls[0][0].role).toBe(UserRole.CUSTOMER);
+  });
+
+  it('tài khoản bị khoá không đăng nhập được (403)', async () => {
+    const passwordHash = await bcrypt.hash('matkhau123', 4);
+    repo.findOne.mockResolvedValue({ id: 4, email: 's@b.com', name: 'S', passwordHash, role: UserRole.STAFF, isActive: false });
+    await expect(service.login({ email: 's@b.com', password: 'matkhau123' })).rejects.toBeInstanceOf(ForbiddenException);
   });
 });

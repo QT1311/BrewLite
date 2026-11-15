@@ -92,7 +92,10 @@ jobs:
     timeout-minutes: 25
     env:
       JWT_SECRET: ci-only-jwt-secret
-      STAFF_API_KEY: ci-only-staff-key
+      ADMIN_EMAIL: ci-admin@brewlite.test
+      ADMIN_PASSWORD: ci-only-admin-password
+      E2E_ADMIN_EMAIL: ci-admin@brewlite.test
+      E2E_ADMIN_PASSWORD: ci-only-admin-password
       CI: "true"
     steps:
       - uses: actions/checkout@v4

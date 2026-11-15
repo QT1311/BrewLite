@@ -72,19 +72,25 @@ curl http://localhost:3001/products/1    # chi tiết một sản phẩm
 | GET | `/orders/me`, `/orders/:id` | Lịch sử đơn, chi tiết đơn của chính mình | JWT |
 | POST | `/orders/:id/cancel` | Huỷ đơn chưa thanh toán (hoàn kho) | JWT |
 | POST | `/payments` | Thanh toán mock, bắt buộc header `Idempotency-Key` | JWT |
-| PATCH | `/orders/:id/status` | Nhân viên cập nhật `PREPARING` → `READY` → `COMPLETED` | `x-staff-key` |
+| GET | `/staff/orders` | Hàng đợi quầy: đơn `PAID`, `PREPARING`, `READY` | JWT staff/admin |
+| PATCH | `/orders/:id/status` | Nhân viên cập nhật `PREPARING` → `READY` → `COMPLETED` | JWT staff/admin |
+| GET | `/admin/stats/revenue?days=7` | Doanh thu theo ngày, món bán chạy (`days` = 7, 14 hoặc 30) | JWT admin |
+| GET | `/admin/orders`, `/admin/products`, `/admin/staff` | Mọi đơn, danh sách món, danh sách nhân viên | JWT admin |
+| PATCH | `/admin/products/:id` | Đặt tồn kho, ngưng bán/bán lại | JWT admin |
+| POST, PATCH | `/admin/staff`, `/admin/staff/:id` | Tạo nhân viên, khoá/mở khoá | JWT admin |
 
 Máy trạng thái đơn: `PENDING → PAID → PREPARING → READY → COMPLETED`; `PENDING → PAYMENT_FAILED → PAID` (thanh toán lại); `PENDING / PAYMENT_FAILED → CANCELLED`. Chuyển sai trả lỗi 409.
 
-Demo nhân viên quầy cập nhật đơn (ở môi trường dev, staff key mặc định là `dev-staff-key`):
+## Tài khoản nhân viên và quản trị
 
-```powershell
-curl.exe -X PATCH http://localhost:3001/orders/1/status -H "Content-Type: application/json" -H "x-staff-key: dev-staff-key" -d "{\"status\":\"PREPARING\"}"
-```
+- Đăng ký công khai chỉ tạo **khách hàng**. Admin đầu tiên được tạo khi API khởi động nếu có hai biến `ADMIN_EMAIL` và `ADMIN_PASSWORD` (đặt trong `.env` ở máy, trong Railway Variables ở production; mật khẩu tối thiểu 8 ký tự).
+- Admin đăng nhập, vào **Quản trị** (`/admin`): doanh thu theo ngày, mọi đơn hàng, tồn kho và ngưng bán món, tạo/khoá tài khoản nhân viên.
+- Nhân viên đăng nhập, vào **Quầy** (`/staff`): xem đơn đã thanh toán và bấm *Bắt đầu pha* → *Xong, sẵn sàng* → *Đã giao khách*. Trang tự làm mới mỗi 15 giây.
+- Vai trò được kiểm tra ở API (ADR 010), nên khoá tài khoản có hiệu lực ngay dù token còn hạn.
 
 ## Chạy toàn bộ bằng Docker (một lệnh)
 
-Yêu cầu: Docker Desktop đang chạy và file `.env` có `JWT_SECRET`, `STAFF_API_KEY` (sao chép từ `.env.example`).
+Yêu cầu: Docker Desktop đang chạy và file `.env` có `JWT_SECRET` (sao chép từ `.env.example`; thêm `ADMIN_EMAIL`, `ADMIN_PASSWORD` nếu muốn có admin).
 
 ```bash
 docker compose up -d --build     # dựng db + api + web (lần đầu mất vài phút)
@@ -166,7 +172,7 @@ Sau đó tạo GitHub Release từ tag, dùng nội dung trong `docs/release-not
 
 **Kiểm tra sau deploy:** `GET <API>/health` trả `status: ok`, `database: up` và `version` là commit đang chạy.
 
-**Secret:** không có trong repo. `RAILWAY_TOKEN` ở GitHub Secrets; `JWT_SECRET`, `STAFF_API_KEY`, `DATABASE_URL` ở Railway Variables.
+**Secret:** không có trong repo. `RAILWAY_TOKEN` ở GitHub Secrets; `JWT_SECRET`, `ADMIN_EMAIL`, `ADMIN_PASSWORD`, `DATABASE_URL` ở Railway Variables.
 
 ## Kiểm thử
 

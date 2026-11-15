@@ -45,10 +45,18 @@ export function formatVND(amount: number): string {
   return new Intl.NumberFormat('vi-VN').format(amount) + 'đ';
 }
 
+export type UserRole = 'customer' | 'staff' | 'admin';
+
 export interface AuthUser {
   id: number;
   email: string;
   name: string;
+  role: UserRole;
+}
+
+/** Trang chủ theo vai trò sau khi đăng nhập. */
+export function roleHome(role: UserRole): string {
+  return role === 'admin' ? '/admin' : role === 'staff' ? '/staff' : '/';
 }
 
 export interface AuthResult {
@@ -156,4 +164,79 @@ export const payOrder = (
     method: 'POST',
     headers: { ...json, ...bearer(token), 'Idempotency-Key': idempotencyKey },
     body: JSON.stringify(body),
+  });
+
+// ===== Nhân viên quầy =====
+export interface StaffOrder {
+  id: number;
+  status: OrderStatus;
+  total: number;
+  createdAt: string;
+  updatedAt: string;
+  customerName: string;
+  customerEmail?: string;
+  items: Array<{ id: number; name: string; size: string | null; toppings: string[]; unitPrice: number; quantity: number }>;
+}
+
+export type StaffAction = 'PREPARING' | 'READY' | 'COMPLETED';
+
+export const fetchStaffQueue = (token: string) => authRequest<StaffOrder[]>('/staff/orders', { headers: bearer(token) });
+
+export const advanceOrderStatus = (token: string, id: number, status: StaffAction) =>
+  authRequest<Order>(`/orders/${id}/status`, {
+    method: 'PATCH',
+    headers: { ...json, ...bearer(token) },
+    body: JSON.stringify({ status }),
+  });
+
+// ===== Quản trị =====
+export interface RevenueReport {
+  days: number;
+  totalRevenue: number;
+  orderCount: number;
+  averageOrder: number;
+  today: { revenue: number; orders: number };
+  byDay: Array<{ date: string; revenue: number; orders: number }>;
+  topProducts: Array<{ name: string; quantity: number; revenue: number }>;
+  ordersByStatus: Record<string, number>;
+}
+
+export interface AdminProduct extends Product {
+  isActive: boolean;
+}
+
+export interface StaffAccount {
+  id: number;
+  email: string;
+  name: string;
+  isActive: boolean;
+  createdAt: string;
+}
+
+export const fetchRevenue = (token: string, days: number) =>
+  authRequest<RevenueReport>(`/admin/stats/revenue?days=${days}`, { headers: bearer(token) });
+
+export const fetchAdminOrders = (token: string, status?: OrderStatus) =>
+  authRequest<StaffOrder[]>(`/admin/orders${status ? `?status=${status}` : ''}`, { headers: bearer(token) });
+
+export const fetchAdminProducts = (token: string) =>
+  authRequest<AdminProduct[]>('/admin/products', { headers: bearer(token) });
+
+export const updateAdminProduct = (token: string, id: number, body: { stock?: number; isActive?: boolean }) =>
+  authRequest<AdminProduct>(`/admin/products/${id}`, {
+    method: 'PATCH',
+    headers: { ...json, ...bearer(token) },
+    body: JSON.stringify(body),
+  });
+
+export const fetchStaffAccounts = (token: string) => authRequest<StaffAccount[]>('/admin/staff', { headers: bearer(token) });
+
+export const createStaffAccount = (token: string, body: { name: string; email: string; password: string }) =>
+  authRequest<StaffAccount>('/admin/staff', { method: 'POST', headers: { ...json, ...bearer(token) }, body: JSON.stringify(body) });
+
+export const setStaffActive = (token: string, id: number, isActive: boolean) =>
+  authRequest<StaffAccount>(`/admin/staff/${id}`, {
+    method: 'PATCH',
+    headers: { ...json, ...bearer(token) },
+    body: JSON.stringify({ isActive }),
   });

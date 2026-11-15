@@ -31,7 +31,7 @@ export class ProductsService implements OnModuleInit {
   }
 
   findAll(): Promise<Product[]> {
-    return this.repo.find({ where: { category: Not(CATEGORY_ARCHIVED) }, order: { id: 'ASC' } });
+    return this.repo.find({ where: { category: Not(CATEGORY_ARCHIVED), isActive: true }, order: { id: 'ASC' } });
   }
 
   async findOne(id: number): Promise<Product> {

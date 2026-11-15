@@ -9,6 +9,12 @@ export function AuthLink() {
   if (status === 'anon') return <Link href="/login" className="cart-link">Đăng nhập</Link>;
   return (
     <>
+      {(user?.role === 'staff' || user?.role === 'admin') && (
+        <Link href="/staff" className="cart-link" data-testid="nav-staff">Quầy</Link>
+      )}
+      {user?.role === 'admin' && (
+        <Link href="/admin" className="cart-link" data-testid="nav-admin">Quản trị</Link>
+      )}
       <Link href="/orders" className="cart-link">Đơn hàng</Link>
       <span className="user-chip" data-testid="user-name">{user?.name}</span>
       <button className="link-btn" onClick={logout}>Đăng xuất</button>

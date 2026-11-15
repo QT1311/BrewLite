@@ -1,6 +1,6 @@
 import { ConflictException, Injectable, NotFoundException } from '@nestjs/common';
 import { InjectDataSource } from '@nestjs/typeorm';
-import { DataSource, EntityManager } from 'typeorm';
+import { DataSource, EntityManager, In } from 'typeorm';
 import { unitPrice } from '../catalog/pricing';
 import { Product } from '../products/product.entity';
 import { CreateOrderDto } from './dto/create-order.dto';
@@ -9,6 +9,36 @@ import { OrderItem } from './order-item.entity';
 import { Order } from './order.entity';
 
 const MAX_LOCK_RETRIES = 5;
+
+/** Các trạng thái quầy cần xử lý (đã thanh toán nhưng chưa giao). */
+export const QUEUE_STATUSES = [OrderStatus.PAID, OrderStatus.PREPARING, OrderStatus.READY];
+
+/** Dạng đơn dành cho nhân viên/admin: có tên khách, không lộ mật khẩu băm hay dữ liệu thừa. */
+export interface StaffOrderView {
+  id: number;
+  status: OrderStatus;
+  total: number;
+  createdAt: Date;
+  updatedAt: Date;
+  customerName: string;
+  customerEmail?: string;
+  items: Array<{ id: number; name: string; size: string | null; toppings: string[]; unitPrice: number; quantity: number }>;
+}
+
+function toStaffView(o: Order, withEmail: boolean): StaffOrderView {
+  return {
+    id: o.id,
+    status: o.status,
+    total: o.total,
+    createdAt: o.createdAt,
+    updatedAt: o.updatedAt,
+    customerName: o.user?.name ?? '',
+    ...(withEmail ? { customerEmail: o.user?.email ?? '' } : {}),
+    items: [...(o.items ?? [])]
+      .sort((a, b) => a.id - b.id)
+      .map((i) => ({ id: i.id, name: i.name, size: i.size, toppings: i.toppings, unitPrice: i.unitPrice, quantity: i.quantity })),
+  };
+}
 
 @Injectable()
 export class OrdersService {
@@ -45,6 +75,27 @@ export class OrdersService {
     return this.findForUser(userId, saved);
   }
 
+  /** Hàng đợi của quầy: đơn đã thanh toán, cũ nhất trước (nhân viên xử lý theo thứ tự). */
+  async findQueue(): Promise<StaffOrderView[]> {
+    const orders = await this.db.getRepository(Order).find({
+      where: { status: In(QUEUE_STATUSES) },
+      relations: { items: true, user: true },
+      order: { createdAt: 'ASC' },
+    });
+    return orders.map((o) => toStaffView(o, false));
+  }
+
+  /** Toàn bộ đơn cho admin, mới nhất trước; có thể lọc theo trạng thái. */
+  async findAllForAdmin(status?: OrderStatus, limit = 100): Promise<StaffOrderView[]> {
+    const orders = await this.db.getRepository(Order).find({
+      where: status ? { status } : {},
+      relations: { items: true, user: true },
+      order: { createdAt: 'DESC' },
+      take: limit,
+    });
+    return orders.map((o) => toStaffView(o, true));
+  }
+
   /**
    * Cộng/trừ tồn kho bằng optimistic locking: chỉ UPDATE khi `version` chưa đổi.
    * Nếu có transaction khác vừa cập nhật (affected = 0) thì đọc lại và thử lại.
@@ -53,6 +104,9 @@ export class OrdersService {
     for (let attempt = 0; attempt < MAX_LOCK_RETRIES; attempt++) {
       const p = await m.findOne(Product, { where: { id: productId } });
       if (!p) throw new NotFoundException(`Sản phẩm #${productId} không tồn tại`);
+      if (delta < 0 && !p.isActive) {
+        throw new ConflictException(`"${p.name}" đang tạm ngưng bán`);
+      }
       if (p.stock + delta < 0) {
         throw new ConflictException(`"${p.name}" không đủ hàng (còn ${p.stock})`);
       }
