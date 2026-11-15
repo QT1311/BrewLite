@@ -37,11 +37,11 @@ Mỗi dòng dưới đây là một GitHub Issue (dùng mẫu `user-story`), g�
 | S2-06 | Xác nhận, trạng thái, lịch sử đơn | FR-14–16 | M | Theo dõi trạng thái, state machine | Done |
 | S2-07 | Validate + xử lý lỗi frontend/backend | NFR-03 | M | Payload sai → 400 thông điệp rõ | Done |
 | S2-08 | Migration thay `synchronize` + seed | — | M | Chạy migration tự động khi khởi động | Done |
-| S2-09 | Dockerfile + Docker Compose web+api+db | NFR-06 | M | `docker compose up` chạy đủ hệ thống | To do |
+| S2-09 | Dockerfile + Docker Compose web+api+db | NFR-06 | M | `docker compose up` chạy đủ hệ thống | Done |
 | S2-10 | Kiểm thử E2E giao diện luồng chính | — | M | Mua hàng thành công + thanh toán lỗi | Done |
 | S2-11 | CD: build image → GHCR → deploy Railway → smoke test | — | L | Merge `main` tự triển khai, smoke test `/health` | Done |
-| S2-12 | Rollback + release notes + tag `v1.0.0` | — | S | Quy trình rollback được kiểm chứng | To do |
-| S2-13 | Triển khai production (HTTPS) | NFR-07 | M | URL truy cập được lúc chấm | To do |
+| S2-12 | Rollback + release notes + tag `v1.0.0` | — | S | Quy trình rollback được kiểm chứng | Done |
+| S2-13 | Triển khai production (HTTPS) | NFR-07 | M | URL truy cập được lúc chấm | Done |
 | S2-14 | `docs/traceability-matrix.md`, video demo, Sprint Review/Retro | — | M | Truy vết FR → UC → sơ đồ → code → test | To do |
 | S2-15 | (Could) Khuyến mãi và điểm thưởng | FR-18 | L | Mã hợp lệ giảm đúng tiền | Backlog |
 
