@@ -14,7 +14,8 @@ Công nghệ: **Next.js** (web, mobile-first) · **NestJS** (API) · **PostgreSQ
 - [x] Đăng ký / đăng nhập JWT (bcrypt, JwtAuthGuard, `GET /auth/me`) + trang `/login`, `/register` — Bước 4
 - [x] Đặt đơn (server tự tính giá, giữ tồn kho bằng transaction + optimistic locking), thanh toán mock có Idempotency-Key, máy trạng thái đơn, trang thanh toán / xác nhận / theo dõi / lịch sử đơn — Bước 5
 - [x] Git + GitHub, ESLint, CI GitHub Actions (Lint & typecheck → Test → Build) — Bước 6
-- [ ] Docker Compose đầy đủ, migration, CD, deploy production (các bước sau)
+- [x] Migration TypeORM thay `synchronize` (Task 5.2) — xem `docs/architecture/adr/008-migrations.md`
+- [ ] Docker Compose đầy đủ, CD, deploy production (các bước sau)
 
 ## Quy trình làm việc
 
@@ -78,6 +79,19 @@ Demo nhân viên quầy cập nhật đơn (ở môi trường dev, staff key m�
 curl.exe -X PATCH http://localhost:3001/orders/1/status -H "Content-Type: application/json" -H "x-staff-key: dev-staff-key" -d "{\"status\":\"PREPARING\"}"
 ```
 
+## Migration cơ sở dữ liệu
+
+Schema do migration quản lý (thư mục `apps/api/src/database/migrations`). API tự chạy migration khi khởi động.
+
+```bash
+npm run migration:show     --workspace apps/api   # xem migration đã/chưa chạy
+npm run migration:run      --workspace apps/api   # chạy thủ công
+npm run migration:revert   --workspace apps/api   # hoàn tác migration gần nhất
+npm run migration:generate --workspace apps/api -- src/database/migrations/TenThayDoi   # sinh từ thay đổi entity
+```
+
+Sinh migration mới xong cần thêm class vào `apps/api/src/database/migrations/index.ts`.
+
 ## Kiểm tra chất lượng (giống CI)
 
 ```bash
@@ -120,5 +134,3 @@ brewlite/
 ├── .env.example
 └── README.md
 ```
-
-<!-- th? nghi?m PR xanh cho CI -->

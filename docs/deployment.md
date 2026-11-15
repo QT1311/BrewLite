@@ -6,9 +6,9 @@
 
 | Môi trường | Cách chạy | Database | Ghi chú |
 |---|---|---|---|
-| Local | `docker compose up -d db`, rồi `npm run dev:api` và `npm run dev:web` | Container PostgreSQL 16, volume `brewlite_pgdata` | `synchronize` bật để tự tạo bảng |
+| Local | `docker compose up -d db`, rồi `npm run dev:api` và `npm run dev:web` | Container PostgreSQL 16, volume `brewlite_pgdata` | Migration tự chạy khi API khởi động (`synchronize` tắt, ADR 008) |
 | CI | GitHub Actions: lint → test (service Postgres 16) → build → build image | Container PostgreSQL 16 (`brewlite_test`) | Không deploy từ nhánh không phải `main` |
-| Production | Railway: ba service `web`, `api`, `postgres` trong một project | Volume bền vững, không có domain công khai | `synchronize` tắt; dùng migration |
+| Production | Railway: ba service `web`, `api`, `postgres` trong một project | Volume bền vững, không có domain công khai | Migration tự chạy khi `api` khởi động; kết nối qua `DATABASE_URL` |
 
 ## 2. Dịch vụ trên Railway
 
