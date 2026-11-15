@@ -10,3 +10,7 @@ next-env.d.ts
 .vscode/
 
 .codegraph/
+
+# Playwright
+playwright-report/
+test-results/

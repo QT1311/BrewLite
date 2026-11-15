@@ -16,6 +16,7 @@ Công nghệ: **Next.js** (web, mobile-first) · **NestJS** (API) · **PostgreSQ
 - [x] Git + GitHub, ESLint, CI GitHub Actions (Lint & typecheck → Test → Build) — Bước 6
 - [x] Migration TypeORM thay `synchronize` (Task 5.2) — xem `docs/architecture/adr/008-migrations.md`
 - [x] Dockerfile (api, web) và Docker Compose đủ web + api + db (Task 5.3)
+- [x] Kiểm thử E2E giao diện bằng Playwright, chạy trong CI trên hệ thống Docker Compose (Task 5.2)
 - [ ] CD, deploy production (các bước sau)
 
 ## Quy trình làm việc
@@ -107,6 +108,26 @@ npm run migration:generate --workspace apps/api -- src/database/migrations/TenTh
 ```
 
 Sinh migration mới xong cần thêm class vào `apps/api/src/database/migrations/index.ts`.
+
+## Kiểm thử E2E giao diện (Playwright)
+
+Kiểm thử luồng người dùng thật trên trình duyệt: xem menu, đổi size, đăng ký, đặt đơn, thanh toán thành công,
+thanh toán thất bại rồi thử lại, xem lịch sử đơn. Mỗi kịch bản chạy trên cả màn hình máy tính và điện thoại.
+
+```bash
+docker compose up -d --build --wait   # dựng web + api + db
+npx playwright install chromium       # chỉ cần lần đầu
+npm run test:ui                       # chạy E2E (E2E_BASE_URL mặc định http://localhost:3000)
+```
+
+Nếu máy không tải được Chromium của Playwright (lỗi `ENOTFOUND cdn.playwright.dev`), dùng Google Chrome đã cài sẵn:
+
+```powershell
+$env:E2E_BROWSER_CHANNEL = "chrome"
+npm.cmd run test:ui
+```
+
+Mã nguồn nằm ở `tests/e2e/`. CI chạy cùng bộ kiểm thử này ở job `E2E (Docker Compose + Playwright)` và lưu báo cáo khi thất bại.
 
 ## Kiểm tra chất lượng (giống CI)
 
