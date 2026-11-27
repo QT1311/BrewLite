@@ -24,6 +24,10 @@ export class User {
   @Column({ name: 'is_active', type: 'boolean', default: true })
   isActive: boolean;
 
+  /** Điểm thưởng tích lũy (FR-18); sổ chi tiết nằm ở bảng loyalty_transactions. */
+  @Column({ name: 'loyalty_points', type: 'int', default: 0 })
+  loyaltyPoints: number;
+
   @CreateDateColumn({ name: 'created_at' })
   createdAt: Date;
 }

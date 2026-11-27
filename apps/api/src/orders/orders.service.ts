@@ -1,8 +1,10 @@
-import { ConflictException, Injectable, NotFoundException } from '@nestjs/common';
+import { ConflictException, Injectable, NotFoundException, UnprocessableEntityException } from '@nestjs/common';
 import { InjectDataSource } from '@nestjs/typeorm';
 import { DataSource, EntityManager, In } from 'typeorm';
 import { unitPrice } from '../catalog/pricing';
 import { Product } from '../products/product.entity';
+import { LoyaltyService } from '../loyalty/loyalty.service';
+import { PromotionsService } from '../promotions/promotions.service';
 import { CreateOrderDto } from './dto/create-order.dto';
 import { assertTransition, OrderStatus, PAYABLE_STATUSES } from './order-status';
 import { OrderItem } from './order-item.entity';
@@ -42,7 +44,11 @@ function toStaffView(o: Order, withEmail: boolean): StaffOrderView {
 
 @Injectable()
 export class OrdersService {
-  constructor(@InjectDataSource() private readonly db: DataSource) {}
+  constructor(
+    @InjectDataSource() private readonly db: DataSource,
+    private readonly promotions: PromotionsService,
+    private readonly loyalty: LoyaltyService,
+  ) {}
 
   /** Tạo đơn PENDING, giữ tồn kho trong cùng 1 transaction (FR-10, FR-17). */
   async create(userId: number, dto: CreateOrderDto): Promise<Order> {
@@ -68,8 +74,22 @@ export class OrdersService {
           quantity: it.quantity,
         });
       });
-      const total = items.reduce((s, i) => s + i.unitPrice * i.quantity, 0);
-      const order = await m.save(m.create(Order, { userId, status: OrderStatus.PENDING, total, items }));
+      const subtotal = items.reduce((s, i) => s + i.unitPrice * i.quantity, 0);
+      let discount = 0;
+      let promotionId: number | null = null;
+      let promotionCode: string | null = null;
+      if (dto.promoCode) {
+        const r = await this.promotions.reserve(m, dto.promoCode, subtotal);
+        discount = r.discount;
+        promotionId = r.promotion.id;
+        promotionCode = r.promotion.code;
+      }
+      const order = await m.save(
+        m.create(Order, {
+          userId, status: OrderStatus.PENDING, total: subtotal - discount,
+          promotionId, promotionCode, discountAmount: discount, items,
+        }),
+      );
       return order.id;
     });
     return this.findForUser(userId, saved);
@@ -137,6 +157,94 @@ export class OrdersService {
     return order;
   }
 
+  /** Áp (hoặc đổi) mã khuyến mãi cho đơn chưa thanh toán. Mã cũ được trả lại lượt dùng; điểm đang dùng được tính lại theo số tiền mới. */
+  async applyPromotion(userId: number, id: number, code: string): Promise<Order> {
+    await this.db.transaction(async (m) => {
+      const order = await this.lockPayableOrder(m, userId, id);
+      const subtotal = await this.subtotalOf(m, order.id);
+      await this.promotions.release(m, order.promotionId);
+      const { promotion, discount } = await this.promotions.reserve(m, code, subtotal);
+      order.promotionId = promotion.id;
+      order.promotionCode = promotion.code;
+      order.discountAmount = discount;
+      await this.repriceWithPoints(m, order, subtotal);
+      await m.save(order);
+    });
+    return this.findForUser(userId, id);
+  }
+
+  async removePromotion(userId: number, id: number): Promise<Order> {
+    await this.db.transaction(async (m) => {
+      const order = await this.lockPayableOrder(m, userId, id);
+      if (order.promotionId == null && order.discountAmount === 0) return;
+      const subtotal = await this.subtotalOf(m, order.id);
+      await this.promotions.release(m, order.promotionId);
+      order.promotionId = null;
+      order.promotionCode = null;
+      order.discountAmount = 0;
+      await this.repriceWithPoints(m, order, subtotal);
+      await m.save(order);
+    });
+    return this.findForUser(userId, id);
+  }
+
+  /** Dùng điểm thưởng cho đơn chưa thanh toán (FR-25): 1 điểm = 100đ, cần tối thiểu 100 điểm. */
+  async redeemPoints(userId: number, id: number): Promise<Order> {
+    await this.db.transaction(async (m) => {
+      const order = await this.lockPayableOrder(m, userId, id);
+      const subtotal = await this.subtotalOf(m, order.id);
+      await this.loyalty.refund(m, order); // tính lại từ đầu, không dùng điểm hai lần
+      await this.loyalty.redeem(m, order, subtotal - order.discountAmount);
+      order.total = subtotal - order.discountAmount - order.pointsDiscount;
+      await m.save(order);
+    });
+    return this.findForUser(userId, id);
+  }
+
+  async removePoints(userId: number, id: number): Promise<Order> {
+    await this.db.transaction(async (m) => {
+      const order = await this.lockPayableOrder(m, userId, id);
+      if (order.pointsRedeemed === 0) return;
+      const subtotal = await this.subtotalOf(m, order.id);
+      await this.loyalty.refund(m, order);
+      order.total = subtotal - order.discountAmount;
+      await m.save(order);
+    });
+    return this.findForUser(userId, id);
+  }
+
+  /**
+   * Tính lại tổng sau khi mã khuyến mãi đổi: hoàn điểm đang dùng rồi dùng lại tối đa có thể.
+   * Nếu không còn dùng được điểm (đơn quá nhỏ) thì đơn chỉ còn giảm giá theo mã.
+   */
+  private async repriceWithPoints(m: EntityManager, order: Order, subtotal: number): Promise<void> {
+    const hadPoints = order.pointsRedeemed > 0;
+    await this.loyalty.refund(m, order);
+    if (hadPoints) {
+      try {
+        await this.loyalty.redeem(m, order, subtotal - order.discountAmount);
+      } catch (err) {
+        if (!(err instanceof UnprocessableEntityException)) throw err;
+      }
+    }
+    order.total = subtotal - order.discountAmount - order.pointsDiscount;
+  }
+
+  /** Tạm tính của đơn = tổng thành tiền các dòng (không phụ thuộc giảm giá). */
+  private async subtotalOf(m: EntityManager, orderId: number): Promise<number> {
+    const items = await m.find(OrderItem, { where: { order: { id: orderId } } });
+    return items.reduce((sum, i) => sum + i.unitPrice * i.quantity, 0);
+  }
+
+  private async lockPayableOrder(m: EntityManager, userId: number, id: number): Promise<Order> {
+    const order = await m.findOne(Order, { where: { id, userId }, lock: { mode: 'pessimistic_write' } });
+    if (!order) throw new NotFoundException('Không tìm thấy đơn hàng');
+    if (!PAYABLE_STATUSES.includes(order.status)) {
+      throw new ConflictException(`Đơn #${order.id} đang ở trạng thái ${order.status}, không thể thay đổi giảm giá`);
+    }
+    return order;
+  }
+
   async cancel(userId: number, id: number): Promise<Order> {
     await this.db.transaction(async (m) => {
       const order = await m.findOne(Order, { where: { id, userId }, lock: { mode: 'pessimistic_write' } });
@@ -151,6 +259,9 @@ export class OrdersService {
           await this.changeStock(m, productId, qty);
         }
       }
+      // Đơn huỷ trả lại lượt dùng mã khuyến mãi và điểm đã dùng (giống hoàn kho).
+      await this.promotions.release(m, order.promotionId);
+      await this.loyalty.refund(m, order);
       order.status = OrderStatus.CANCELLED;
       await m.save(order);
     });

@@ -1,8 +1,10 @@
 import { Type } from 'class-transformer';
 import {
-  ArrayMaxSize, ArrayMinSize, IsArray, IsIn, IsInt, IsOptional, Max, Min, ValidateNested,
+  ArrayMaxSize, ArrayMinSize, IsArray, IsIn, IsInt, IsOptional, IsString, Matches, Max, Min, ValidateNested,
 } from 'class-validator';
 import { SIZE_CODES, TOPPING_CODES } from '../../catalog/pricing';
+
+export const PROMO_CODE_RE = /^\s*[A-Za-z0-9_-]{3,30}\s*$/;
 
 export class OrderItemDto {
   @IsInt()
@@ -31,6 +33,18 @@ export class CreateOrderDto {
   @ValidateNested({ each: true })
   @Type(() => OrderItemDto)
   items: OrderItemDto[];
+
+  /** Mã khuyến mãi (tuỳ chọn); server kiểm tra và tự tính số tiền giảm (FR-18). */
+  @IsOptional()
+  @IsString()
+  @Matches(PROMO_CODE_RE, { message: 'Mã khuyến mãi không hợp lệ' })
+  promoCode?: string;
+}
+
+export class ApplyPromotionDto {
+  @IsString()
+  @Matches(PROMO_CODE_RE, { message: 'Mã khuyến mãi không hợp lệ' })
+  code: string;
 }
 
 export class UpdateStatusDto {
