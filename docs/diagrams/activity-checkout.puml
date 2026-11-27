@@ -57,6 +57,21 @@ endif
 |Giao diện (Next.js)|
 :Chuyển tới trang thanh toán /checkout/:id;
 |Khách hàng|
+if (Có mã khuyến mãi hoặc điểm thưởng?) then (có)
+  :Nhập mã và/hoặc bấm "Dùng điểm";
+  |Giao diện (Next.js)|
+  :Gửi POST /orders/:id/promotion\nvà/hoặc POST /orders/:id/points;
+  |API (NestJS)|
+  if (Mã/điểm hợp lệ?) then (không)
+    :Trả 422 kèm lý do,\ntổng tiền không đổi;
+  else (có)
+    :Giữ một lượt dùng mã, trừ điểm\n(1 điểm = 100đ), tính lại tổng tiền;
+  endif
+  |Giao diện (Next.js)|
+  :Hiển thị tổng tiền sau giảm;
+  |Khách hàng|
+else (không)
+endif
 repeat
   :Chọn Ví điện tử / Thẻ,\nbấm "Thanh toán";
   |Giao diện (Next.js)|
@@ -77,7 +92,7 @@ repeat
     |Khách hàng|
     if (Khách chọn?) then (huỷ đơn)
       |API (NestJS)|
-      :Đơn → CANCELLED, hoàn tồn kho;
+      :Đơn → CANCELLED, hoàn tồn kho,\nhoàn điểm và lượt dùng mã;
       |Giao diện (Next.js)|
       :Thông báo đã huỷ;
       stop
@@ -85,7 +100,7 @@ repeat
     endif
   else (thành công)
     |API (NestJS)|
-    :Lưu giao dịch SUCCEEDED,\nđơn → PAID;
+    :Lưu giao dịch SUCCEEDED, đơn → PAID;\nCộng điểm thưởng (1 điểm / 10.000đ thực trả);
   endif
 repeat while (Chưa PAID?) is (thử lại)
 |Giao diện (Next.js)|

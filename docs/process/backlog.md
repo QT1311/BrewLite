@@ -43,7 +43,7 @@ Mỗi dòng dưới đây là một GitHub Issue (dùng mẫu `user-story`), g�
 | S2-12 | Rollback + release notes + tag `v1.0.0` | — | S | Quy trình rollback được kiểm chứng | Done |
 | S2-13 | Triển khai production (HTTPS) | NFR-07 | M | URL truy cập được lúc chấm | Done |
 | S2-14 | `docs/traceability-matrix.md`, video demo, Sprint Review/Retro | — | M | Truy vết FR → UC → sơ đồ → code → test | To do |
-| S2-15 | (Could) Khuyến mãi và điểm thưởng | FR-18 | L | Mã hợp lệ giảm đúng tiền | Backlog |
+| S2-15 | (Could) Khuyến mãi và điểm thưởng | FR-18 | L | Mã hợp lệ giảm đúng tiền | Done (làm ở Sprint 3, xem S3-06) |
 
 ## Sprint 3 – Mở rộng nhân viên và quản trị (sau v1.0.0)
 
@@ -56,6 +56,9 @@ Mỗi dòng dưới đây là một GitHub Issue (dùng mẫu `user-story`), g�
 | S3-03 | Dashboard doanh thu admin | FR-21 | M | Chỉ tính giao dịch thành công, theo giờ Việt Nam | Done |
 | S3-04 | Admin xem mọi đơn, quản lý tồn kho và ngưng bán món | FR-22 | M | Món ngưng bán ẩn khỏi menu và không đặt được | Done |
 | S3-05 | Admin tạo và khoá tài khoản nhân viên | FR-23 | M | Staff bị khoá mất quyền ngay | Done |
+| S3-06 | Mã khuyến mãi (giảm %/số tiền, hạn, lượt, đơn tối thiểu) và cộng điểm thưởng sau PAID | FR-18 | L | Server tính tiền giảm; đặt đồng thời không vượt lượt; điểm cộng đúng một lần | Done |
+| S3-07 | Admin tạo, xem và bật/tắt mã khuyến mãi | FR-24 | M | Chỉ admin; mã trùng bị từ chối; mã tắt không dùng được | Done |
+| S3-08 | Đổi điểm thưởng thành giảm giá (1 điểm = 100đ, tối thiểu 100 điểm) | FR-25 | M | Dưới 100 điểm nút khoá; hoàn điểm khi bỏ dùng/huỷ đơn; đồng thời không âm số dư | Done |
 
 ## Ghi chú
 - Trạng thái "Done" phản ánh mã nguồn đã có sẵn trong repo tại thời điểm Sprint 1; khi đưa lên GitHub,

@@ -21,18 +21,20 @@
 | FR-15 | Hệ thống phải cho phép khách hàng xem lịch sử đơn hàng của mình | Must | `GET /orders/me` trả đúng danh sách đơn của khách đang đăng nhập, không lộ đơn của người khác |
 | FR-16 | Hệ thống phải quản lý trạng thái đơn theo một chuỗi hợp lệ (state machine) | Should | Chuyển trạng thái không hợp lệ (ví dụ COMPLETED → PENDING) bị chặn và trả lỗi |
 | FR-17 | Hệ thống phải kiểm soát tồn kho khi nhiều khách đặt đồng thời | Should | Khi 2 yêu cầu đặt cùng sản phẩm/cùng lúc vượt tồn kho, chỉ 1 yêu cầu thành công, yêu cầu còn lại báo hết hàng |
-| FR-18 | Hệ thống có thể áp dụng mã khuyến mãi và cộng điểm thưởng sau khi đơn PAID | Could | Nhập mã hợp lệ giảm đúng số tiền quy định; điểm thưởng cộng đúng theo tổng tiền đơn |
+| FR-18 | Hệ thống phải áp dụng mã khuyến mãi hợp lệ (giảm theo % hoặc số tiền, có hạn dùng, giới hạn lượt, đơn tối thiểu) và cộng điểm thưởng cho khách sau khi đơn `PAID` (1 điểm cho mỗi 10.000đ thực trả, tính trên số tiền sau mọi khoản giảm) | Should | Mã hợp lệ giảm đúng số tiền do server tính; mã sai, hết hạn, hết lượt hoặc chưa đủ đơn tối thiểu bị từ chối (422) và không giữ tồn kho; đặt đồng thời không vượt số lượt của mã; huỷ đơn trả lại lượt dùng; điểm cộng đúng một lần dù thanh toán gửi lại; thanh toán thất bại không được điểm |
 | FR-19 | Hệ thống phải phân quyền theo vai trò khách hàng, nhân viên (staff) và quản trị viên (admin); đăng ký công khai chỉ tạo khách hàng | Must | Gọi API của staff hoặc admin bằng token khách trả 403; token của tài khoản bị khoá trả 401; gửi `role` khi đăng ký vẫn tạo khách hàng |
 | FR-20 | Nhân viên phải xem được các đơn đã thanh toán cần xử lý và chuyển trạng thái `PREPARING → READY → COMPLETED` trên màn hình quầy | Must | Trang `/staff` liệt kê đơn `PAID`, `PREPARING`, `READY` kèm món và tên khách; bấm nút chuyển đúng trạng thái kế tiếp, chuyển sai bị chặn |
 | FR-21 | Admin phải xem được doanh thu theo ngày, số đơn, giá trị trung bình và món bán chạy | Should | Doanh thu chỉ tính giao dịch thanh toán thành công; đơn chưa trả, thanh toán lỗi hoặc đã huỷ không được tính |
 | FR-22 | Admin phải xem được toàn bộ đơn hàng và quản lý món (đặt tồn kho, ngưng bán/bán lại) | Should | Món ngưng bán ẩn khỏi menu và không đặt được; tồn kho không nhận giá trị âm |
 | FR-23 | Admin phải tạo và khoá/mở khoá tài khoản nhân viên; admin đầu tiên được tạo từ biến môi trường | Should | Staff bị khoá mất quyền ngay dù token còn hạn; admin không thể bị khoá qua API này |
+| FR-24 | Admin phải tạo, xem và bật/tắt mã khuyến mãi | Should | Chỉ admin gọi được `/admin/promotions`; mã trùng bị từ chối (409); phần trăm giảm tối đa 90%; mã bị tắt không dùng được ngay |
+| FR-25 | Khách phải đổi được điểm thưởng thành giảm giá ở bước thanh toán: 1 điểm = 100đ, cần có tối thiểu 100 điểm (10.000đ) mới được đổi | Should | Dưới 100 điểm thì nút đổi bị khoá và API trả 422; đổi điểm trừ đúng số điểm và giảm đúng 100đ mỗi điểm; đơn vẫn phải trả tối thiểu 1.000đ; bỏ dùng hoặc huỷ đơn hoàn lại điểm; hai đơn cùng dùng điểm một lúc không làm số dư âm |
 
 ## 2. Yêu cầu phi chức năng (Non-functional Requirements)
 
 | Mã | Mô tả | Ưu tiên (MoSCoW) | Tiêu chí chấp nhận |
 |---|---|---|---|
-| NFR-01 | Thời gian phản hồi API phải dưới 500ms với dữ liệu mẫu | Must | Đo bằng test hiệu năng đơn giản (ví dụ autocannon/k6) trên `GET /products` và `POST /orders` |
+| NFR-01 | Thời gian phản hồi API phải dưới 500ms với dữ liệu mẫu | Must | Đo bằng `npm run test:perf` (`tests/perf/api-latency.mjs`): p95 của `GET /products` và `POST /orders` dưới 500ms |
 | NFR-02 | Mật khẩu người dùng phải được băm (hash), không lưu plaintext | Must | Kiểm tra trực tiếp cột password trong CSDL chỉ chứa hash (bcrypt) |
 | NFR-03 | Mọi endpoint ghi dữ liệu phải validate dữ liệu đầu vào | Must | Gửi payload sai định dạng tới `POST /orders`, `POST /payments` trả lỗi 400 với thông điệp rõ ràng |
 | NFR-04 | Giao diện phải hoạt động tốt trên trình duyệt di động (mobile-first) | Must | Giao diện hiển thị đúng bố cục ở độ rộng màn hình ≤ 400px, không bị tràn ngang |

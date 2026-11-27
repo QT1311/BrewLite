@@ -32,7 +32,7 @@ menu, tùy chọn sản phẩm, đặt đơn và thanh toán không tiền mặt
 
 **Mở rộng (out-of-scope cho MVP, có thể làm sau):**
 - Màn hình/role dành cho nhân viên quầy (tiếp nhận đơn, cập nhật trạng thái pha chế)
-- Khuyến mãi và điểm thưởng nâng cao (loyalty) — chỉ làm phần lõi ở Task 10
+- Khuyến mãi nâng cao: mã theo từng khách, combo, hạn sử dụng của điểm (đã làm: mã giảm giá, tích điểm sau thanh toán và đổi điểm lấy giảm giá, FR-18, FR-25)
 - Thông báo đẩy (push notification) thời gian thực
 - Đa cửa hàng / đa chi nhánh
 

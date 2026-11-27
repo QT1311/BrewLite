@@ -3,22 +3,21 @@
 Ứng dụng đặt và thanh toán đồ uống không dùng tiền mặt (đồ án môn Công nghệ phần mềm).
 Công nghệ: **Next.js** (web, mobile-first) · **NestJS** (API) · **PostgreSQL** · **Docker**.
 
-## Trạng thái hiện tại — Bước 6
+## Trạng thái hiện tại — v1.1.0
 
-- [x] Cấu trúc monorepo (`apps/api`, `apps/web`, `docs`)
-- [x] API `GET /products`, `GET /products/:id`, `GET /health` (NestJS + TypeORM + PostgreSQL, tự nạp dữ liệu mẫu)
-- [x] Unit test cho `ProductsService`
-- [x] Tài liệu Task 1.1–1.2: `docs/requirements/` và use-case tổng quát `docs/diagrams/`
-- [x] Giao diện menu Next.js (Bước 2): glass UI, trạng thái loading / rỗng / lỗi + nút thử lại, 6 unit test component
-- [x] Chi tiết sản phẩm (chọn size/topping, đơn giá cập nhật) và giỏ hàng (thêm/sửa/xoá, tự tính tổng, lưu localStorage) — Bước 3
-- [x] Đăng ký / đăng nhập JWT (bcrypt, JwtAuthGuard, `GET /auth/me`) + trang `/login`, `/register` — Bước 4
-- [x] Đặt đơn (server tự tính giá, giữ tồn kho bằng transaction + optimistic locking), thanh toán mock có Idempotency-Key, máy trạng thái đơn, trang thanh toán / xác nhận / theo dõi / lịch sử đơn — Bước 5
-- [x] Git + GitHub, ESLint, CI GitHub Actions (Lint & typecheck → Test → Build) — Bước 6
-- [x] Migration TypeORM thay `synchronize` (Task 5.2) — xem `docs/architecture/adr/008-migrations.md`
-- [x] Dockerfile (api, web) và Docker Compose đủ web + api + db (Task 5.3)
-- [x] Kiểm thử E2E giao diện bằng Playwright, chạy trong CI trên hệ thống Docker Compose (Task 5.2)
-- [x] CD (GitHub Actions → GHCR → Railway), smoke test, rollback (Task 5.3, ADR 009)
-- [x] Production chạy trên Railway: https://web-production-97f35c81.up.railway.app
+Luồng nghiệp vụ trọn vẹn: **xem thực đơn → chọn size/topping → giỏ hàng → đặt đơn → thanh toán (mock) → theo dõi đơn**, cộng thêm quầy nhân viên, quản trị, mã khuyến mãi và điểm thưởng.
+
+- [x] Monorepo `apps/api` (NestJS 11, TypeORM, PostgreSQL 16) và `apps/web` (Next.js 15, React 19, mobile-first), tài liệu trong `docs/`
+- [x] Menu, chi tiết món (size, topping), giỏ hàng, đăng ký/đăng nhập JWT (bcrypt), đặt đơn, thanh toán mock có `Idempotency-Key`, xác nhận, theo dõi và lịch sử đơn
+- [x] Nghiệp vụ backend: máy trạng thái đơn, thanh toán idempotent, kiểm soát tồn kho đồng thời (transaction + optimistic locking), mã khuyến mãi và điểm thưởng (FR-13, 16, 17, 18, 25)
+- [x] Ba vai trò khách / nhân viên / quản trị; quầy `/staff`, quản trị `/admin` (FR-19 đến FR-24)
+- [x] Giao diện tông tối "Rang đậm": trang mở đầu `/` theo từng nhóm đồ uống, thực đơn đầy đủ `/thuc-don`, chuyển động nhẹ, nút hiện/ẩn mật khẩu — xem [`DESIGN.md`](DESIGN.md)
+- [x] Migration TypeORM (ADR 008), Dockerfile và Docker Compose đủ web + api + db
+- [x] Kiểm thử: unit (API, web), integration (API + PostgreSQL), E2E giao diện (Playwright, desktop + mobile), đo hiệu năng API (NFR-01)
+- [x] CI (Lint → Test → Build → E2E) chặn merge khi lỗi; CD (GitHub Actions → GHCR → Railway) có smoke test và rollback (ADR 009)
+- [x] Production trên Railway: https://web-production-97f35c81.up.railway.app · API: https://api-production-9d99f943.up.railway.app/health
+
+Các trang chính: `/` giới thiệu theo nhóm đồ uống, `/thuc-don` thực đơn (nhận `?nhom=<mã nhóm>`), `/products/:id` chi tiết món, `/cart` giỏ hàng, `/checkout/:id` thanh toán, `/orders` lịch sử đơn, `/login` và `/register`, `/staff` quầy, `/admin` quản trị.
 
 ## Quy trình làm việc
 
@@ -70,7 +69,10 @@ curl http://localhost:3001/products/1    # chi tiết một sản phẩm
 | GET | `/auth/me` | Thông tin người dùng hiện tại | JWT |
 | POST | `/orders` | Tạo đơn `PENDING` từ giỏ hàng | JWT |
 | GET | `/orders/me`, `/orders/:id` | Lịch sử đơn, chi tiết đơn của chính mình | JWT |
-| POST | `/orders/:id/cancel` | Huỷ đơn chưa thanh toán (hoàn kho) | JWT |
+| POST | `/orders/:id/cancel` | Huỷ đơn chưa thanh toán (hoàn kho, trả lại lượt dùng mã) | JWT |
+| POST, DELETE | `/orders/:id/promotion` | Áp / đổi / gỡ mã khuyến mãi cho đơn chưa thanh toán (`POST /orders` cũng nhận `promoCode`) | JWT |
+| POST, DELETE | `/orders/:id/points` | Dùng / bỏ dùng điểm thưởng cho đơn chưa thanh toán (1 điểm = 100đ, cần ≥ 100 điểm) | JWT |
+| GET | `/loyalty/me` | Điểm thưởng hiện có và lịch sử cộng/dùng/hoàn điểm | JWT |
 | POST | `/payments` | Thanh toán mock, bắt buộc header `Idempotency-Key` | JWT |
 | GET | `/staff/orders` | Hàng đợi quầy: đơn `PAID`, `PREPARING`, `READY` | JWT staff/admin |
 | PATCH | `/orders/:id/status` | Nhân viên cập nhật `PREPARING` → `READY` → `COMPLETED` | JWT staff/admin |
@@ -78,8 +80,15 @@ curl http://localhost:3001/products/1    # chi tiết một sản phẩm
 | GET | `/admin/orders`, `/admin/products`, `/admin/staff` | Mọi đơn, danh sách món, danh sách nhân viên | JWT admin |
 | PATCH | `/admin/products/:id` | Đặt tồn kho, ngưng bán/bán lại | JWT admin |
 | POST, PATCH | `/admin/staff`, `/admin/staff/:id` | Tạo nhân viên, khoá/mở khoá | JWT admin |
+| GET, POST, PATCH | `/admin/promotions`, `/admin/promotions/:id` | Xem, tạo, bật/tắt mã khuyến mãi | JWT admin |
 
 Máy trạng thái đơn: `PENDING → PAID → PREPARING → READY → COMPLETED`; `PENDING → PAYMENT_FAILED → PAID` (thanh toán lại); `PENDING / PAYMENT_FAILED → CANCELLED`. Chuyển sai trả lỗi 409.
+
+## Khuyến mãi và điểm thưởng
+- Khách nhập mã ở bước thanh toán (`/checkout/:id`); server kiểm tra mã (đang bật, chưa hết hạn, còn lượt, đạt mức đơn tối thiểu) rồi tự tính tiền giảm. Mã không phân biệt hoa thường.
+- Hai mã mẫu được tạo khi API khởi động nếu chưa có: `BREW10` (giảm 10%, tối đa 20.000đ) và `GIAM15K` (giảm 15.000đ cho đơn từ 60.000đ). Admin tạo thêm trong `/admin` → tab **Khuyến mãi**.
+- Điểm thưởng: sau khi đơn thanh toán thành công, khách được 1 điểm cho mỗi 10.000đ thực trả (làm tròn xuống). Xem điểm ở trang **Đơn hàng**.
+- Đổi điểm: ở trang thanh toán khách bấm **Dùng điểm** để đổi điểm thành giảm giá (1 điểm = 100đ). Cần có ít nhất 100 điểm (10.000đ), chưa đủ thì nút bị khoá. Đơn vẫn phải trả tối thiểu 1.000đ; bỏ dùng điểm hoặc huỷ đơn sẽ hoàn lại điểm. Có thể dùng cùng mã khuyến mãi.
 
 ## Tài khoản nhân viên và quản trị
 
@@ -179,7 +188,10 @@ Sau đó tạo GitHub Release từ tag, dùng nội dung trong `docs/release-not
 ```bash
 npm test                                  # unit test API + test component web
 npm run test:e2e --workspace apps/api     # integration test đặt đơn/thanh toán (cần PostgreSQL đang chạy)
+npm run test:perf                         # đo thời gian phản hồi API, NFR-01 (cần API đang chạy)
 ```
+
+`npm run test:perf` (`tests/perf/api-latency.mjs`, không cần cài thêm gì) gọi mỗi endpoint chính 50 lần và báo trung bình, p50, p95, lớn nhất; đạt khi p95 dưới 500 ms. Phép đo `POST /orders` tạo đơn thật rồi huỷ ngay để hoàn tồn kho, nên chỉ chạy trên máy local, không chạy trên production. Đổi địa chỉ API bằng `API_URL`.
 
 Integration test chạy trên CSDL trong `.env`, tự tạo rồi tự xoá dữ liệu thử nghiệm. Có các ca kiểm tra
 đặt hàng đồng thời (không bán vượt tồn kho) và thanh toán lặp cùng `Idempotency-Key` (chỉ 1 giao dịch).
@@ -190,10 +202,10 @@ Integration test chạy trên CSDL trong `.env`, tự tạo rồi tự xoá dữ
 brewlite/
 ├── apps/
 │   ├── api/        # NestJS
-│   └── web/        # Next.js (menu, glass UI)
+│   └── web/        # Next.js (landing, thực đơn, giỏ hàng, quầy, quản trị)
 ├── docs/
 │   ├── requirements/   # context-and-scope.md, srs.md
-│   ├── diagrams/       # sơ đồ UML (.puml + ảnh)
+│   ├── diagrams/       # sơ đồ UML (.puml + .svg/.png)
 │   └── architecture/   # mô tả kiến trúc + ADR
 ├── docker-compose.yml
 ├── .env.example

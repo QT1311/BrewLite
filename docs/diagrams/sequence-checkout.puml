@@ -41,6 +41,23 @@ else hợp lệ
   UI --> C : Chuyển tới trang thanh toán
 end
 
+== 1b. Mã khuyến mãi và điểm thưởng (tuỳ chọn) ==
+opt khách nhập mã hoặc bấm "Dùng điểm"
+  C -> UI : Nhập mã / bấm "Dùng điểm"
+  UI -> API : POST /orders/:id/promotion {code}\nhoặc POST /orders/:id/points (JWT)
+  API -> DB : BEGIN; SELECT order FOR UPDATE; SELECT promotion / user
+  alt mã không hợp lệ (tắt, hết hạn, hết lượt, chưa đạt mức tối thiểu) hoặc chưa đủ 100 điểm
+    API -> DB : ROLLBACK
+    API --> UI : 422 Unprocessable Entity (kèm lý do)
+    UI --> C : Hiện lý do, tổng tiền không đổi
+  else hợp lệ
+    API -> DB : UPDATE promotions (giữ 1 lượt) / users SET loyalty_points -= n\nINSERT loyalty_transactions (REDEEM)\nUPDATE orders SET discount_amount, total
+    API -> DB : COMMIT
+    API --> UI : 200 {total mới, discountAmount}
+    UI --> C : Hiển thị tổng tiền sau giảm
+  end
+end
+
 == 2. Thanh toán ==
 C -> UI : Chọn phương thức, bấm "Thanh toán"
 UI -> UI : Sinh Idempotency-Key
@@ -60,9 +77,9 @@ else key mới
     API -> PAY : charge(amount, method)
     alt thanh toán thành công
       PAY --> API : success + transactionRef
-      API -> DB : INSERT payment (SUCCEEDED, key UNIQUE)\nUPDATE orders SET status = PAID
+      API -> DB : INSERT payment (SUCCEEDED, key UNIQUE)\nUPDATE orders SET status = PAID\nINSERT loyalty_transactions (EARN)\nUPDATE users SET loyalty_points += n
       API -> DB : COMMIT
-      API --> UI : 201 {status: SUCCEEDED, orderStatus: PAID}
+      API --> UI : 201 {status: SUCCEEDED, orderStatus: PAID, pointsEarned}
       UI -> UI : Xoá giỏ hàng
       UI --> C : Màn hình xác nhận (mã đơn, PAID)
     else thanh toán thất bại

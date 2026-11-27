@@ -43,8 +43,11 @@ API được chia theo module nghiệp vụ, mỗi module gồm controller (HTTP
 
 - **products:** đọc menu và chi tiết; đồng bộ menu mẫu khi khởi động.
 - **auth:** đăng ký, đăng nhập, băm mật khẩu (bcrypt), cấp JWT; `JwtAuthGuard` bảo vệ các route ghi.
-- **orders:** tạo đơn trong một transaction, trừ tồn kho, tính giá từ server, máy trạng thái đơn, huỷ đơn, cập nhật trạng thái bởi nhân viên (bảo vệ bằng `StaffKeyGuard`).
-- **payments:** thanh toán với `Idempotency-Key`, khoá dòng đơn khi thanh toán, gọi cổng mock.
+- **orders:** tạo đơn trong một transaction, trừ tồn kho, tính giá từ server, áp mã khuyến mãi, máy trạng thái đơn, huỷ đơn (hoàn kho và trả lượt dùng mã), cập nhật trạng thái bởi nhân viên (JWT + `RolesGuard`, ADR 010).
+- **payments:** thanh toán với `Idempotency-Key`, khoá dòng đơn khi thanh toán, gọi cổng mock, cộng điểm thưởng khi thành công.
+- **promotions:** mã khuyến mãi; giữ/trả lượt dùng bằng `UPDATE` có điều kiện (ADR 011).
+- **loyalty:** sổ điểm thưởng (`loyalty_transactions`) và `GET /loyalty/me`.
+- **admin:** doanh thu, xem mọi đơn, quản lý món, nhân viên và mã khuyến mãi (chỉ vai trò admin).
 - **catalog:** bảng giá theo size và topping (`pricing.ts`), dùng chung cho đơn hàng để giá không phụ thuộc client.
 - **health:** `GET /health` kiểm tra kết nối cơ sở dữ liệu.
 

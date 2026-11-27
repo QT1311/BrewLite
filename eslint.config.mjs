@@ -27,6 +27,11 @@ export default tseslint.config(
       '@typescript-eslint/no-non-null-assertion': 'off',
     },
   },
+  // Script Node ngoài apps (đo hiệu năng)
+  {
+    files: ['tests/**/*.mjs'],
+    languageOptions: { globals: { ...globals.node } },
+  },
   // Frontend Next.js
   {
     files: ['apps/web/**/*.{ts,tsx}'],
