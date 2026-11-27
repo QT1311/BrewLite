@@ -3,7 +3,7 @@ import { addFirstProductToCart, placeOrderFromCart, registerNewUser } from './he
 
 test.describe('Luồng mua hàng end-to-end', () => {
   test('thực đơn hiển thị sản phẩm và đổi được size ở trang chi tiết', async ({ page }) => {
-    await page.goto('/');
+    await page.goto('/thuc-don');
     await expect(page.locator('a.card-link').first()).toBeVisible();
     await page.locator('a.card-link').first().click();
 
@@ -59,6 +59,38 @@ test.describe('Luồng mua hàng end-to-end', () => {
 
     await page.goto('/orders');
     await expect(page.getByText('Đã thanh toán').first()).toBeVisible();
+  });
+
+  test('áp mã khuyến mãi ở bước thanh toán → trả tiền đã giảm → nhận điểm thưởng', async ({ page }) => {
+    await registerNewUser(page);
+    await addFirstProductToCart(page);
+    await placeOrderFromCart(page);
+
+    await page.getByLabel('Mã khuyến mãi').fill('brew10'); // không phân biệt hoa thường
+    await page.getByRole('button', { name: 'Áp dụng' }).click();
+    await expect(page.getByTestId('promo-applied')).toContainText('BREW10');
+    await expect(page.getByTestId('order-discount')).toContainText('−');
+    await expect(page.getByRole('button', { name: /Xác nhận trả/ })).toBeVisible();
+
+    await page.getByRole('button', { name: /Xác nhận trả/ }).click();
+    await expect(page.getByRole('heading', { name: 'Đặt hàng thành công' })).toBeVisible();
+    await expect(page.getByTestId('order-discount')).toContainText('−');
+    await expect(page.getByTestId('points-earned')).toContainText('điểm thưởng');
+
+    await page.goto('/orders');
+    await expect(page.getByTestId('loyalty-points')).toContainText('Điểm thưởng của bạn');
+  });
+
+  test('mã khuyến mãi sai bị từ chối và không đổi tổng tiền', async ({ page }) => {
+    await registerNewUser(page);
+    await addFirstProductToCart(page);
+    await placeOrderFromCart(page);
+    const before = await page.getByTestId('order-total').textContent();
+
+    await page.getByLabel('Mã khuyến mãi').fill('KHONGTONTAI');
+    await page.getByRole('button', { name: 'Áp dụng' }).click();
+    await expect(page.locator('.form-error')).toContainText('Mã khuyến mãi không tồn tại');
+    await expect(page.getByTestId('order-total')).toHaveText(before ?? '');
   });
 });
 

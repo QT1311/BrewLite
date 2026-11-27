@@ -56,7 +56,7 @@ export interface AuthUser {
 
 /** Trang chủ theo vai trò sau khi đăng nhập. */
 export function roleHome(role: UserRole): string {
-  return role === 'admin' ? '/admin' : role === 'staff' ? '/staff' : '/';
+  return role === 'admin' ? '/admin' : role === 'staff' ? '/staff' : '/thuc-don';
 }
 
 export interface AuthResult {
@@ -121,6 +121,12 @@ export interface Order {
   status: OrderStatus;
   total: number;
   items: OrderLine[];
+  /** Mã khuyến mãi đang áp (null nếu không có) và số tiền đã giảm; tạm tính = total + discountAmount. */
+  promotionCode: string | null;
+  discountAmount: number;
+  /** Điểm thưởng đang dùng cho đơn (1 điểm = 100đ) và số tiền tương ứng. */
+  pointsRedeemed: number;
+  pointsDiscount: number;
   createdAt: string;
   updatedAt: string;
 }
@@ -134,6 +140,8 @@ export interface PaymentResult {
   orderStatus: OrderStatus;
   amount: number;
   failureReason: string | null;
+  /** Điểm thưởng vừa được cộng cho lần thanh toán này. */
+  pointsEarned: number;
 }
 
 const bearer = (token: string) => ({ Authorization: `Bearer ${token}` });
@@ -149,6 +157,33 @@ export const createOrder = (
   });
 
 export const fetchOrder = (token: string, id: number) => authRequest<Order>(`/orders/${id}`, { headers: bearer(token) });
+
+export const applyPromotion = (token: string, id: number, code: string) =>
+  authRequest<Order>(`/orders/${id}/promotion`, {
+    method: 'POST',
+    headers: { ...json, ...bearer(token) },
+    body: JSON.stringify({ code }),
+  });
+
+export const removePromotion = (token: string, id: number) =>
+  authRequest<Order>(`/orders/${id}/promotion`, { method: 'DELETE', headers: bearer(token) });
+
+/** Quy tắc đổi điểm (khớp API): 1 điểm = 100đ; cần tối thiểu 100 điểm (10.000đ). */
+export const VND_PER_REDEEM_POINT = 100;
+export const MIN_REDEEM_POINTS = 100;
+
+export const redeemPoints = (token: string, id: number) =>
+  authRequest<Order>(`/orders/${id}/points`, { method: 'POST', headers: bearer(token) });
+
+export const removePoints = (token: string, id: number) =>
+  authRequest<Order>(`/orders/${id}/points`, { method: 'DELETE', headers: bearer(token) });
+
+export interface LoyaltySummary {
+  points: number;
+  transactions: Array<{ id: number; orderId: number; points: number; type: 'EARN' | 'REDEEM' | 'REFUND'; createdAt: string }>;
+}
+
+export const fetchLoyalty = (token: string) => authRequest<LoyaltySummary>('/loyalty/me', { headers: bearer(token) });
 
 export const fetchMyOrders = (token: string) => authRequest<Order[]>('/orders/me', { headers: bearer(token) });
 
@@ -239,4 +274,43 @@ export const setStaffActive = (token: string, id: number, isActive: boolean) =>
     method: 'PATCH',
     headers: { ...json, ...bearer(token) },
     body: JSON.stringify({ isActive }),
+  });
+
+export interface AdminPromotion {
+  id: number;
+  code: string;
+  description: string;
+  discountType: 'PERCENT' | 'FIXED';
+  value: number;
+  minOrderTotal: number;
+  maxDiscount: number | null;
+  maxUses: number | null;
+  usedCount: number;
+  expiresAt: string | null;
+  isActive: boolean;
+  createdAt: string;
+}
+
+export interface NewPromotion {
+  code: string;
+  description?: string;
+  discountType: 'PERCENT' | 'FIXED';
+  value: number;
+  minOrderTotal?: number;
+  maxDiscount?: number;
+  maxUses?: number;
+  expiresAt?: string;
+}
+
+export const fetchAdminPromotions = (token: string) =>
+  authRequest<AdminPromotion[]>('/admin/promotions', { headers: bearer(token) });
+
+export const createAdminPromotion = (token: string, body: NewPromotion) =>
+  authRequest<AdminPromotion>('/admin/promotions', { method: 'POST', headers: { ...json, ...bearer(token) }, body: JSON.stringify(body) });
+
+export const updateAdminPromotion = (token: string, id: number, body: { isActive?: boolean }) =>
+  authRequest<AdminPromotion>(`/admin/promotions/${id}`, {
+    method: 'PATCH',
+    headers: { ...json, ...bearer(token) },
+    body: JSON.stringify(body),
   });

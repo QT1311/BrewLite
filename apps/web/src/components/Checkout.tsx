@@ -2,8 +2,11 @@
 
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { useCallback, useEffect, useRef, useState } from 'react';
-import { ApiError, Order, PaymentMethod, cancelOrder, fetchOrder, formatVND, payOrder } from '@/lib/api';
+import { FormEvent, useCallback, useEffect, useRef, useState } from 'react';
+import {
+  ApiError, MIN_REDEEM_POINTS, Order, PaymentMethod, VND_PER_REDEEM_POINT, applyPromotion, cancelOrder, fetchLoyalty, fetchOrder,
+  formatVND, payOrder, removePoints, removePromotion, redeemPoints,
+} from '@/lib/api';
 import { useCart } from '@/lib/CartContext';
 import { PAYABLE, describeLine, newIdempotencyKey } from '@/lib/orders';
 import { useRequireAuth } from '@/lib/useRequireAuth';
@@ -24,6 +27,12 @@ export function Checkout({ id }: { id: number }) {
   const [simulateFailure, setSimulateFailure] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [promoInput, setPromoInput] = useState('');
+  const [promoError, setPromoError] = useState<string | null>(null);
+  const [promoBusy, setPromoBusy] = useState(false);
+  const [pointsError, setPointsError] = useState<string | null>(null);
+  /** Số điểm thưởng hiện có của khách (null = chưa tải được). */
+  const [balance, setBalance] = useState<number | null>(null);
   /**
    * Idempotency-Key của lần thanh toán hiện tại.
    * - Giữ nguyên khi lỗi mạng → bấm lại sẽ không trừ tiền 2 lần.
@@ -55,6 +64,15 @@ export function Checkout({ id }: { id: number }) {
       });
   }, [status, token, id, router, handleAuthError]);
 
+  const refreshBalance = useCallback(() => {
+    if (!token) return;
+    fetchLoyalty(token).then((l) => setBalance(l.points)).catch(() => undefined);
+  }, [token]);
+
+  useEffect(() => {
+    if (status === 'authed') refreshBalance();
+  }, [status, refreshBalance]);
+
   async function onPay() {
     if (!token || !order || busy) return;
     setBusy(true);
@@ -76,6 +94,44 @@ export function Checkout({ id }: { id: number }) {
       setError(err instanceof Error ? err.message : 'Đã có lỗi xảy ra');
     }
     setBusy(false);
+  }
+
+  /** Áp/gỡ mã khuyến mãi hoặc điểm thưởng; server tính lại tổng tiền nên UI chỉ hiển thị kết quả server trả về. */
+  async function changeDiscount(action: () => Promise<Order>, failMessage: string, setErr: (m: string | null) => void) {
+    if (!token || busy || promoBusy) return;
+    setPromoBusy(true);
+    setErr(null);
+    try {
+      setOrder(await action());
+      setPromoInput('');
+      refreshBalance();
+    } catch (err) {
+      if (!handleAuthError(err)) setErr(err instanceof Error ? err.message : failMessage);
+    } finally {
+      setPromoBusy(false);
+    }
+  }
+
+  function onApplyPromo(e: FormEvent) {
+    e.preventDefault();
+    const code = promoInput.trim();
+    if (!order || !token || !code) return;
+    void changeDiscount(() => applyPromotion(token, order.id, code), 'Không áp dụng được mã', setPromoError);
+  }
+
+  function onRemovePromo() {
+    if (!order || !token) return;
+    void changeDiscount(() => removePromotion(token, order.id), 'Không gỡ được mã', setPromoError);
+  }
+
+  function onUsePoints() {
+    if (!order || !token) return;
+    void changeDiscount(() => redeemPoints(token, order.id), 'Không dùng được điểm', setPointsError);
+  }
+
+  function onRemovePoints() {
+    if (!order || !token) return;
+    void changeDiscount(() => removePoints(token, order.id), 'Không bỏ dùng được điểm', setPointsError);
   }
 
   async function onCancel() {
@@ -119,6 +175,69 @@ export function Checkout({ id }: { id: number }) {
             </li>
           ))}
         </ul>
+        <div className="promo">
+          {order.promotionCode ? (
+            <div className="promo-applied" data-testid="promo-applied">
+              <span>Mã <strong>{order.promotionCode}</strong> đã áp dụng</span>
+              <button type="button" className="link-btn" onClick={onRemovePromo} disabled={promoBusy}>Gỡ mã</button>
+            </div>
+          ) : (
+            <form className="promo-form" onSubmit={onApplyPromo}>
+              <input
+                aria-label="Mã khuyến mãi"
+                placeholder="Nhập mã khuyến mãi"
+                value={promoInput}
+                maxLength={30}
+                autoComplete="off"
+                onChange={(e) => setPromoInput(e.target.value)}
+              />
+              <button type="submit" className="btn btn-secondary" disabled={promoBusy || !promoInput.trim()}>Áp dụng</button>
+            </form>
+          )}
+          {promoError && <p className="form-error" role="alert">{promoError}</p>}
+        </div>
+        <div className="points-box" data-testid="points-box">
+          {order.pointsRedeemed > 0 ? (
+            <div className="promo-applied" data-testid="points-applied">
+              <span>Đã dùng <strong>{order.pointsRedeemed}</strong> điểm</span>
+              <button type="button" className="link-btn" onClick={onRemovePoints} disabled={promoBusy}>Bỏ dùng điểm</button>
+            </div>
+          ) : (
+            <>
+              <div className="points-row">
+                <span>
+                  Điểm thưởng: <strong data-testid="points-balance">{balance ?? '…'}</strong>{' '}
+                  <small>(1 điểm = {formatVND(VND_PER_REDEEM_POINT)})</small>
+                </span>
+                <button
+                  type="button"
+                  className="btn btn-secondary"
+                  onClick={onUsePoints}
+                  disabled={promoBusy || balance === null || balance < MIN_REDEEM_POINTS}
+                >
+                  Dùng điểm
+                </button>
+              </div>
+              {balance !== null && balance < MIN_REDEEM_POINTS && (
+                <p className="muted small" data-testid="points-hint">
+                  Cần tối thiểu {MIN_REDEEM_POINTS} điểm ({formatVND(MIN_REDEEM_POINTS * VND_PER_REDEEM_POINT)}) để đổi điểm.
+                </p>
+              )}
+            </>
+          )}
+          {pointsError && <p className="form-error" role="alert">{pointsError}</p>}
+        </div>
+        {(order.discountAmount > 0 || order.pointsDiscount > 0) && (
+          <>
+            <div className="sum-row sum-sub"><span>Tạm tính</span><span>{formatVND(order.total + order.discountAmount + order.pointsDiscount)}</span></div>
+            {order.discountAmount > 0 && (
+              <div className="sum-row sum-sub"><span>Giảm giá</span><span data-testid="order-discount">−{formatVND(order.discountAmount)}</span></div>
+            )}
+            {order.pointsDiscount > 0 && (
+              <div className="sum-row sum-sub"><span>Điểm thưởng ({order.pointsRedeemed} điểm)</span><span data-testid="order-points-discount">−{formatVND(order.pointsDiscount)}</span></div>
+            )}
+          </>
+        )}
         <div className="sum-row"><span>Tổng</span><strong data-testid="order-total">{formatVND(order.total)}</strong></div>
       </div>
 

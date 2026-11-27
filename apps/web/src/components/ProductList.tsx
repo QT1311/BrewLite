@@ -13,9 +13,9 @@ function normalize(s: string) {
   return s.normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/đ/g, 'd').toLowerCase();
 }
 
-export function ProductList() {
+export function ProductList({ initialCategory }: { initialCategory?: string } = {}) {
   const [state, setState] = useState<State>({ status: 'loading' });
-  const [category, setCategory] = useState('all');
+  const [category, setCategory] = useState(initialCategory ?? 'all');
   const [query, setQuery] = useState('');
 
   const products = state.status === 'ready' ? state.products : null;
@@ -24,19 +24,21 @@ export function ProductList() {
     const rank = (c: string) => (CATEGORY_ORDER.includes(c) ? CATEGORY_ORDER.indexOf(c) : CATEGORY_ORDER.length);
     return present.sort((a, b) => rank(a) - rank(b));
   }, [products]);
+  // Nhóm mở từ trang mở đầu (?nhom=…) mà không còn món nào thì quay về "Tất cả".
+  const activeCategory = category === 'all' || products === null || categories.includes(category) ? category : 'all';
   const visible = useMemo(() => {
     const q = normalize(query.trim());
     return (products ?? []).filter(
       (p) =>
-        (category === 'all' || p.category === category) &&
+        (activeCategory === 'all' || p.category === activeCategory) &&
         (q === '' || normalize(`${p.name} ${p.description}`).includes(q)),
     );
-  }, [products, category, query]);
+  }, [products, activeCategory, query]);
   // Xem "Tất cả" mà chưa tìm kiếm: chia theo từng loại có tiêu đề; còn lại: một lưới phẳng.
-  const showHeadings = category === 'all' && query.trim() === '';
+  const showHeadings = activeCategory === 'all' && query.trim() === '';
   const groups: [string, Product[]][] = showHeadings
     ? categories.map((c) => [c, visible.filter((p) => p.category === c)] as [string, Product[]]).filter(([, l]) => l.length)
-    : [[category, visible]];
+    : [[activeCategory, visible]];
 
   const load = useCallback(() => {
     const controller = new AbortController();
@@ -94,8 +96,8 @@ export function ProductList() {
             <button
               key={c}
               type="button"
-              className={`chip-btn${category === c ? ' on' : ''}`}
-              aria-pressed={category === c}
+              className={`chip-btn${activeCategory === c ? ' on' : ''}`}
+              aria-pressed={activeCategory === c}
               onClick={() => setCategory(c)}
             >
               {c === 'all' ? 'Tất cả' : (CATEGORY_LABELS[c] ?? c)}

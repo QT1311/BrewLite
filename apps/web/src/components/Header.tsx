@@ -11,8 +11,8 @@ export function Header() {
           <span className="brand-word">BrewLite</span>
         </Link>
         <nav aria-label="Điều hướng chính">
-          <Link href="/#menu" className="nav-home">Thực đơn</Link>
-          <Link href="/#how" className="nav-how">Cách hoạt động</Link>
+          <Link href="/thuc-don" className="nav-home">Thực đơn</Link>
+          <Link href="/thuc-don#how" className="nav-how">Cách đặt món</Link>
           <CartLink />
           <AuthLink />
         </nav>

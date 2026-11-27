@@ -15,7 +15,7 @@ export async function registerNewUser(page: Page) {
 
 /** Mở món đầu tiên trong thực đơn và thêm vào giỏ. */
 export async function addFirstProductToCart(page: Page) {
-  await page.goto('/');
+  await page.goto('/thuc-don');
   await page.locator('a.card-link').first().click();
   await page.getByRole('button', { name: /Thêm vào giỏ/ }).click();
   await expect(page.getByRole('button', { name: /Đã thêm/ })).toBeVisible();
