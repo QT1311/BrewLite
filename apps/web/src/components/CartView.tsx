@@ -41,7 +41,7 @@ export function CartView() {
       <div className="state-box">
         <h2>Giỏ hàng trống</h2>
         <p>Hãy chọn vài món đồ uống từ thực đơn nhé.</p>
-        <Link href="/" className="btn">Xem thực đơn</Link>
+        <Link href="/thuc-don" className="btn">Xem thực đơn</Link>
       </div>
     );
   }

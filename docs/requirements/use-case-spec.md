@@ -41,7 +41,7 @@
 | 6 | Hệ thống | Giao diện sinh `Idempotency-Key` mới, gửi `POST /payments` (`orderId`, `method`) kèm header này |
 | 7 | Hệ thống | API khoá dòng đơn, kiểm tra đơn thuộc về khách và đang ở trạng thái cho phép thanh toán, gọi cổng thanh toán |
 | 8 | Cổng thanh toán | Trả về thành công kèm mã giao dịch |
-| 9 | Hệ thống | Lưu giao dịch `SUCCEEDED`, chuyển đơn `PENDING → PAID`, trả kết quả |
+| 9 | Hệ thống | Lưu giao dịch `SUCCEEDED`, chuyển đơn `PENDING → PAID`, **cộng điểm thưởng** (1 điểm cho mỗi 10.000đ thực trả) trong cùng transaction, trả kết quả kèm số điểm vừa nhận |
 | 10 | Hệ thống | Giao diện xoá giỏ hàng và hiển thị màn hình xác nhận (mã đơn, trạng thái `PAID`) |
 | 11 | Khách | Theo dõi trạng thái đơn (`PAID → PREPARING → READY → COMPLETED`), giao diện làm mới mỗi 5 giây |
 
@@ -53,6 +53,8 @@
 | **A2** | Ở bước 5 khách rời trang thanh toán mà chưa trả tiền | Đơn vẫn `PENDING`; khách có thể quay lại từ lịch sử đơn để thanh toán, hoặc **huỷ đơn** (đơn `CANCELLED`, tồn kho hoàn lại) |
 | **A3** | Ở bước 8 thanh toán thất bại và khách chọn thử lại | Đơn ở `PAYMENT_FAILED` có thể thanh toán lại với `Idempotency-Key` mới; quay lại bước 6 |
 | **A4** | Khách bấm **Thanh toán** nhiều lần (double submit) hoặc mạng lỗi khiến client gửi lại cùng yêu cầu | Cùng `Idempotency-Key` → API trả lại đúng kết quả cũ, **không tạo giao dịch thứ hai** |
+| **A6** | Giữa bước 4 và 5 khách có từ 100 điểm thưởng và bấm **Dùng điểm** | `POST /orders/:id/points`: trừ điểm (1 điểm = 100đ, tối đa sao cho đơn còn trả ≥ 1.000đ), ghi sổ điểm, tổng tiền giảm tương ứng. Dưới 100 điểm thì nút bị khoá (API trả `422`). Khách có thể **Bỏ dùng điểm** hoặc huỷ đơn để được hoàn điểm; điểm tích sau thanh toán tính trên số tiền thực trả |
+| **A5** | Giữa bước 4 và 5 khách nhập mã khuyến mãi | `POST /orders/:id/promotion`: server kiểm tra mã, giữ một lượt dùng, tính lại tổng tiền (tạm tính − giảm giá); khách có thể đổi hoặc gỡ mã (lượt cũ được trả lại). Số tiền thanh toán ở bước 6–9 là tổng đã giảm |
 
 ## 6. Luồng ngoại lệ
 
@@ -67,13 +69,14 @@
 | **E7** | Dùng lại `Idempotency-Key` cho đơn khác | `422 Unprocessable Entity` |
 | **E8** | Thanh toán đơn đã `PAID`/đã huỷ | `409 Conflict`, không trừ tiền lần nữa |
 | **E9** | Thanh toán hoặc xem đơn của người khác | `404 Not Found` (không tiết lộ đơn tồn tại) |
+| **E11** | Mã khuyến mãi không tồn tại, bị tắt, hết hạn, hết lượt hoặc đơn chưa đạt mức tối thiểu | `422 Unprocessable Entity` kèm lý do; đơn/tổng tiền không đổi (khi nhập lúc tạo đơn thì không tạo đơn và không giữ tồn kho) |
 | **E10** | API hoặc cơ sở dữ liệu lỗi | Giao diện báo lỗi và cho phép thử lại; không có giao dịch tiền nào bị trừ khi chưa nhận kết quả |
 
 ## 7. Hệ thống làm gì và không làm gì
 
-**Làm:** tính giá từ server, giữ tồn kho trong transaction, thanh toán mock với idempotency, quản lý trạng thái đơn bằng state machine, lưu lịch sử đơn.
+**Làm:** tính giá và tiền giảm từ server, giữ tồn kho và lượt dùng mã trong transaction, thanh toán mock với idempotency, cộng điểm thưởng sau khi `PAID`, quản lý trạng thái đơn bằng state machine, lưu lịch sử đơn.
 
-**Không làm (trong UC-01):** thanh toán bằng tiền mặt, tích hợp cổng thanh toán thật, hoàn tiền sau khi đã `PAID`, khuyến mãi / điểm thưởng (FR-18, mức Could), thông báo đẩy.
+**Không làm (trong UC-01):** thanh toán bằng tiền mặt, tích hợp cổng thanh toán thật, hoàn tiền sau khi đã `PAID`, thông báo đẩy.
 
 ## 8. Liên kết yêu cầu và kiểm thử
 
@@ -90,7 +93,9 @@
 | FR-14 | Màn hình xác nhận đơn | Bước 10 | `checkout.test.tsx` |
 | FR-15 | Lịch sử đơn, không lộ đơn người khác | E9 | INT-T10 |
 | FR-16 | State machine trạng thái đơn | Bước 9, 11, E8 | `order-status.spec.ts`, INT-T07, INT-T12 |
-| (huỷ đơn) | Huỷ đơn chưa thanh toán, hoàn kho | A2 | INT-T11 |
+| (huỷ đơn) | Huỷ đơn chưa thanh toán, hoàn kho và trả lượt dùng mã | A2 | INT-T11, INT-T22 |
+| FR-18 | Mã khuyến mãi và điểm thưởng | A5, E11, bước 9 | INT-T18 → T24; `promotion.spec.ts`, `loyalty.spec.ts`; `checkout.test.tsx`; E2E-T07, E2E-T08 |
+| FR-25 | Đổi điểm thưởng thành giảm giá | A6 | INT-T26 → T28; `loyalty.spec.ts`; `checkout.test.tsx` (đổi điểm) |
 
 ## 9. Tiêu chí chấp nhận (dùng để viết test)
 
@@ -101,4 +106,7 @@
 - **AC-5:** Gửi lại `POST /payments` với cùng `Idempotency-Key` luôn trả cùng kết quả và không tạo giao dịch mới.
 - **AC-6:** Khi cổng thanh toán từ chối, đơn sang `PAYMENT_FAILED` và vẫn thanh toán lại được; thanh toán đơn đã `PAID` trả `409`.
 - **AC-7:** Khách chỉ truy cập được đơn của chính mình (người khác nhận `404`).
+- **AC-9:** Mã hợp lệ làm tổng tiền giảm đúng `computeDiscount` (server tính, bỏ qua số client gửi); mã không hợp lệ trả `422`; mã chỉ còn 1 lượt, 2 khách đặt cùng lúc → đúng 1 đơn được giảm; huỷ đơn trả lại lượt.
+- **AC-10:** Thanh toán thành công cộng `floor(tổng thực trả / 10.000)` điểm đúng một lần (gửi lại cùng `Idempotency-Key` không cộng thêm); thanh toán thất bại không cộng điểm.
+- **AC-11:** Dưới 100 điểm, `POST /orders/:id/points` trả `422` và số dư không đổi; từ 100 điểm, đổi trừ đúng số điểm và giảm 100đ mỗi điểm, đơn vẫn trả tối thiểu 1.000đ; bỏ dùng hoặc huỷ đơn hoàn lại đủ điểm; hai đơn dùng điểm đồng thời không làm số dư âm.
 - **AC-8 (UI):** Sau thanh toán thành công, giỏ hàng trống và màn hình xác nhận hiển thị đúng mã đơn và trạng thái.

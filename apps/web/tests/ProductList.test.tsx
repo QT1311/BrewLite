@@ -43,6 +43,17 @@ describe('ProductList', () => {
     expect(screen.getByText('Không tìm thấy món phù hợp')).toBeInTheDocument();
   });
 
+  it('mở sẵn nhóm được chọn từ trang mở đầu, nhóm không tồn tại thì về Tất cả', async () => {
+    mockFetch(async () => ({ ok: true, json: async () => sample }));
+    const { unmount } = render(<ProductList initialCategory="tra" />);
+    expect(await screen.findAllByTestId('product-card')).toHaveLength(1);
+    expect(screen.getByRole('button', { name: 'Trà' })).toHaveAttribute('aria-pressed', 'true');
+    unmount();
+    render(<ProductList initialCategory="khong-co" />);
+    expect(await screen.findAllByTestId('product-card')).toHaveLength(2);
+    expect(screen.getByRole('button', { name: 'Tất cả' })).toHaveAttribute('aria-pressed', 'true');
+  });
+
   it('hiển thị trạng thái rỗng khi API trả danh sách trống', async () => {
     mockFetch(async () => ({ ok: true, json: async () => [] }));
     render(<ProductList />);

@@ -2,7 +2,7 @@
 
 import Link from 'next/link';
 import { useEffect, useState } from 'react';
-import { ApiError, Order, fetchOrder, formatVND } from '@/lib/api';
+import { ApiError, Order, fetchLoyalty, fetchOrder, formatVND } from '@/lib/api';
 import { FINAL, PAYABLE, PROGRESS, STATUS_LABEL, describeLine } from '@/lib/orders';
 import { useRequireAuth } from '@/lib/useRequireAuth';
 import { StatusBadge } from './StatusBadge';
@@ -13,6 +13,7 @@ export function OrderDetail({ id }: { id: number }) {
   const { status, token, logout } = useRequireAuth(`/orders/${id}`);
   const [order, setOrder] = useState<Order | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [earned, setEarned] = useState<number | null>(null);
 
   // Theo dõi đơn (UC9): tải lại định kỳ cho tới khi đơn kết thúc.
   useEffect(() => {
@@ -39,6 +40,20 @@ export function OrderDetail({ id }: { id: number }) {
     };
   }, [status, token, id, logout]);
 
+  // Điểm thưởng của đơn này (FR-18): lấy từ sổ điểm khi đơn đã được thanh toán.
+  const paid = !!order && PROGRESS.includes(order.status);
+  const orderId = order?.id;
+  useEffect(() => {
+    if (!paid || !token || orderId === undefined) return;
+    let stopped = false;
+    fetchLoyalty(token)
+      .then((s) => !stopped && setEarned(s.transactions.find((t) => t.orderId === orderId && t.type === 'EARN')?.points ?? 0))
+      .catch(() => !stopped && setEarned(0));
+    return () => {
+      stopped = true;
+    };
+  }, [paid, token, orderId]);
+
   if (error && !order) {
     return (
       <div className="state-box" role="alert">
@@ -59,7 +74,9 @@ export function OrderDetail({ id }: { id: number }) {
         <div className="success-hero">
           <div className="check" aria-hidden="true">✓</div>
           <h1>Đặt hàng thành công</h1>
-          <p>Mã đơn <strong data-testid="order-code">#{order.id}</strong> — mời bạn tới quầy khi đồ uống sẵn sàng.</p>
+          <p className="order-code-label">Mã đơn của bạn</p>
+          <strong className="order-code" data-testid="order-code">#{order.id}</strong>
+          <p>Đọc mã này ở quầy khi đồ uống sẵn sàng.</p>
         </div>
       )}
       <div className="panel">
@@ -85,14 +102,34 @@ export function OrderDetail({ id }: { id: number }) {
             </li>
           ))}
         </ul>
+        {(order.discountAmount > 0 || order.pointsDiscount > 0) && (
+          <>
+            <div className="sum-row sum-sub"><span>Tạm tính</span><span>{formatVND(order.total + order.discountAmount + order.pointsDiscount)}</span></div>
+            {order.discountAmount > 0 && (
+              <div className="sum-row sum-sub">
+                <span>Giảm giá{order.promotionCode ? ` (${order.promotionCode})` : ''}</span>
+                <span data-testid="order-discount">−{formatVND(order.discountAmount)}</span>
+              </div>
+            )}
+            {order.pointsDiscount > 0 && (
+              <div className="sum-row sum-sub">
+                <span>Điểm thưởng đã dùng ({order.pointsRedeemed} điểm)</span>
+                <span data-testid="order-points-discount">−{formatVND(order.pointsDiscount)}</span>
+              </div>
+            )}
+          </>
+        )}
         <div className="sum-row"><span>Tổng</span><strong>{formatVND(order.total)}</strong></div>
+        {earned !== null && earned > 0 && (
+          <p className="points-earned" data-testid="points-earned">Bạn nhận được +{earned} điểm thưởng</p>
+        )}
         <p className="muted small">Đặt lúc {new Date(order.createdAt).toLocaleString('vi-VN')}</p>
         {PAYABLE.includes(order.status) && (
           <Link href={`/checkout/${order.id}`} className="btn btn-lg full">Thanh toán đơn này</Link>
         )}
       </div>
       <div className="row-links">
-        <Link href="/">← Tiếp tục chọn món</Link>
+        <Link href="/thuc-don">← Tiếp tục chọn món</Link>
         <Link href="/orders">Lịch sử đơn hàng</Link>
       </div>
     </div>

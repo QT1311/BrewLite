@@ -1,7 +1,5 @@
 import type { Metadata, Viewport } from 'next';
 import Link from 'next/link';
-import '@fontsource-variable/fraunces/index.css';
-import '@fontsource-variable/fraunces/standard-italic.css';
 import '@fontsource/be-vietnam-pro/400.css';
 import '@fontsource/be-vietnam-pro/500.css';
 import '@fontsource/be-vietnam-pro/600.css';
@@ -16,7 +14,7 @@ export const metadata: Metadata = {
   description: 'Xem menu, đặt và thanh toán đồ uống nhanh chóng từ điện thoại.',
 };
 
-export const viewport: Viewport = { width: 'device-width', initialScale: 1, themeColor: '#0c0a10' };
+export const viewport: Viewport = { width: 'device-width', initialScale: 1, themeColor: '#17120f' };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
@@ -32,7 +30,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
                   <span className="brand-mark" aria-hidden="true">b</span>
                   <span className="brand-word">BrewLite</span>
                 </Link>
-                <p>© 2026 BrewLite · Đồ án Công nghệ phần mềm — Đại học Sài Gòn</p>
+                <p>© 2026 BrewLite. Đồ án Công nghệ phần mềm, Đại học Sài Gòn.</p>
               </div>
             </footer>
           </CartProvider>

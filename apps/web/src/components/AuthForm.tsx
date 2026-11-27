@@ -2,7 +2,7 @@
 
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { FormEvent, useState } from 'react';
+import { FormEvent, useId, useState } from 'react';
 import { roleHome } from '@/lib/api';
 import { useAuth } from '@/lib/AuthContext';
 import { safeRedirect } from '@/lib/redirect';
@@ -19,6 +19,8 @@ export function AuthForm({ mode, next }: { mode: Mode; next?: string }) {
   const [password, setPassword] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+  const [showPassword, setShowPassword] = useState(false);
+  const passwordId = useId();
   const isRegister = mode === 'register';
   const target = safeRedirect(next);
   const query = target !== '/' ? `?next=${encodeURIComponent(target)}` : '';
@@ -62,15 +64,29 @@ export function AuthForm({ mode, next }: { mode: Mode; next?: string }) {
         Email
         <input type="email" value={email} onChange={(e) => setEmail(e.target.value)} autoComplete="email" />
       </label>
-      <label>
-        Mật khẩu
-        <input
-          type="password"
-          value={password}
-          onChange={(e) => setPassword(e.target.value)}
-          autoComplete={isRegister ? 'new-password' : 'current-password'}
-        />
-      </label>
+      <div className="field">
+        <label htmlFor={passwordId}>Mật khẩu</label>
+        <div className="password-field">
+          <input
+            id={passwordId}
+            type={showPassword ? 'text' : 'password'}
+            value={password}
+            onChange={(e) => setPassword(e.target.value)}
+            autoComplete={isRegister ? 'new-password' : 'current-password'}
+          />
+          {/* Nút hiện/ẩn chỉ đổi kiểu ô nhập, không ảnh hưởng dữ liệu gửi đi. */}
+          <button
+            type="button"
+            className="password-toggle"
+            aria-controls={passwordId}
+            aria-pressed={showPassword}
+            onClick={() => setShowPassword((v) => !v)}
+          >
+            {showPassword ? 'Ẩn' : 'Hiện'}
+            <span className="sr-only"> mật khẩu</span>
+          </button>
+        </div>
+      </div>
       {error && (
         <p className="form-error" role="alert">
           {error}

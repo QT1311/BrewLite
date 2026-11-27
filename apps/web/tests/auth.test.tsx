@@ -37,6 +37,22 @@ describe('safeRedirect', () => {
 });
 
 describe('AuthForm', () => {
+  it('nút Hiện/Ẩn đổi kiểu ô mật khẩu mà không xoá nội dung đã nhập', async () => {
+    vi.stubGlobal('fetch', vi.fn());
+    render(<App />);
+    const input = screen.getByLabelText('Mật khẩu');
+    await userEvent.type(input, 'matkhau123');
+    expect(input).toHaveAttribute('type', 'password');
+    const toggle = screen.getByRole('button', { name: 'Hiện mật khẩu' });
+    expect(toggle).toHaveAttribute('aria-pressed', 'false');
+    await userEvent.click(toggle);
+    expect(input).toHaveAttribute('type', 'text');
+    expect(input).toHaveValue('matkhau123');
+    expect(screen.getByRole('button', { name: 'Ẩn mật khẩu' })).toHaveAttribute('aria-pressed', 'true');
+    await userEvent.click(screen.getByRole('button', { name: 'Ẩn mật khẩu' }));
+    expect(input).toHaveAttribute('type', 'password');
+  });
+
   it('validate phía client, không gọi API khi dữ liệu sai', async () => {
     const fetchMock = vi.fn();
     vi.stubGlobal('fetch', fetchMock);

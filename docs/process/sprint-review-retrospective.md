@@ -56,9 +56,9 @@ Dự án thực hiện một mình (một sinh viên đảm nhiệm cả ba vai 
 
 **Thống kê kiểm thử:** 33 unit test web, unit test API (pricing, auth, state machine, products), 12 integration test (INT-T01…T12) trên PostgreSQL thật, 5 kịch bản Playwright chạy trên desktop và mobile. Ma trận truy vết: [`traceability-matrix.md`](../traceability-matrix.md).
 
-**Chưa đạt, cố ý hoãn:** FR-18 (khuyến mãi, điểm thưởng); NFR-01 chưa có test hiệu năng tự động; giao diện nhân viên quầy được bổ sung sau ở v1.1.0 (Sprint 3); thanh toán chỉ là mock.
+**Chưa đạt, cố ý hoãn:** FR-18 (khuyến mãi, điểm thưởng) và giao diện nhân viên quầy, cả hai được bổ sung sau ở v1.1.0 (Sprint 3); NFR-01 chỉ có phép đo thủ công `npm run test:perf` (thêm ở Sprint 3), chưa chạy trong CI; thanh toán chỉ là mock.
 
-**Phản hồi và quyết định:** _điền phản hồi sau buổi demo._ Các mục hoãn được đưa lại vào Product Backlog (S2-15 và hai việc tuỳ chọn: test hiệu năng, trang `/staff`).
+**Phản hồi và quyết định:** _điền phản hồi sau buổi demo._ Các mục hoãn được đưa lại vào Product Backlog (S2-15 khuyến mãi và điểm thưởng, trang `/staff`, đều đã làm ở Sprint 3; còn lại việc tuỳ chọn: test hiệu năng).
 
 ## Sprint 2 — Retrospective
 
@@ -83,7 +83,7 @@ Dự án thực hiện một mình (một sinh viên đảm nhiệm cả ba vai 
 - Chạy thử pipeline CD sớm, ngay khi có service giữ chỗ, sẽ phát hiện lỗi cấu hình trước hạn nộp.
 
 **Hành động cho các Sprint sau**
-- Thêm test hiệu năng đơn giản cho `GET /products` và `POST /orders` (NFR-01).
+- Thêm test hiệu năng đơn giản cho `GET /products` và `POST /orders` (NFR-01). Đã thực hiện ở Sprint 3 bằng `npm run test:perf`.
 - Làm trang `/staff` để nhân viên cập nhật đơn không cần gọi API bằng lệnh. Đã thực hiện trong Sprint 3 cùng phân quyền admin (ADR 010).
 - Làm FR-18 (khuyến mãi, điểm thưởng) nếu còn thời gian.
 - Theo dõi chi phí thực tế của Railway sau một tuần so với ước tính trong ADR 007.

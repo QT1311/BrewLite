@@ -44,7 +44,7 @@ export function ProductDetail({ id }: { id: number }) {
       <div className="state-box">
         <h2>Không tìm thấy sản phẩm</h2>
         <p>Sản phẩm này không tồn tại hoặc đã ngừng bán.</p>
-        <Link href="/" className="btn">Về thực đơn</Link>
+        <Link href="/thuc-don" className="btn">Về thực đơn</Link>
       </div>
     );
   }
@@ -81,7 +81,7 @@ export function ProductDetail({ id }: { id: number }) {
         <img src={product.imageUrl ?? '/images/placeholder.svg'} alt={product.name} />
       </div>
       <div className="detail-body">
-        <Link href="/" className="back">← Thực đơn</Link>
+        <Link href="/thuc-don" className="back">← Thực đơn</Link>
         <p className="overline">{CATEGORY_LABELS[product.category] ?? product.category}</p>
         <h1>{product.name}</h1>
         <p className="detail-from">{priceLabel(product)}</p>
@@ -121,7 +121,7 @@ export function ProductDetail({ id }: { id: number }) {
             <span data-testid="qty">{qty}</span>
             <button onClick={() => setQty((q) => Math.min(20, q + 1))} aria-label="Tăng">+</button>
           </div>
-          <button className="btn btn-lg" onClick={handleAdd} disabled={soldOut}>
+          <button className={`btn btn-lg${added ? ' is-added' : ''}`} onClick={handleAdd} disabled={soldOut}>
             {soldOut ? 'Hết hàng' : added ? 'Đã thêm ✓' : `Thêm vào giỏ · ${formatVND(price * qty)}`}
           </button>
         </div>

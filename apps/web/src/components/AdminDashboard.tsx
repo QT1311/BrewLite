@@ -4,6 +4,7 @@ import { useState } from 'react';
 import { AdminOrders } from './AdminOrders';
 import { AdminOverview } from './AdminOverview';
 import { AdminProducts } from './AdminProducts';
+import { AdminPromotions } from './AdminPromotions';
 import { AdminStaff } from './AdminStaff';
 import { RoleGate } from './RoleGate';
 
@@ -11,6 +12,7 @@ const TABS = [
   { id: 'overview', label: 'Doanh thu' },
   { id: 'orders', label: 'Đơn hàng' },
   { id: 'products', label: 'Món & tồn kho' },
+  { id: 'promotions', label: 'Khuyến mãi' },
   { id: 'staff', label: 'Nhân viên' },
 ] as const;
 
@@ -37,6 +39,7 @@ function Dashboard({ token, logout }: { token: string; logout: () => void }) {
         {tab === 'overview' && <AdminOverview token={token} logout={logout} />}
         {tab === 'orders' && <AdminOrders token={token} logout={logout} />}
         {tab === 'products' && <AdminProducts token={token} logout={logout} />}
+        {tab === 'promotions' && <AdminPromotions token={token} logout={logout} />}
         {tab === 'staff' && <AdminStaff token={token} logout={logout} />}
       </div>
     </>

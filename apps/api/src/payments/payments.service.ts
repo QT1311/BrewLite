@@ -3,6 +3,7 @@ import {
 } from '@nestjs/common';
 import { InjectDataSource } from '@nestjs/typeorm';
 import { DataSource, QueryFailedError } from 'typeorm';
+import { LoyaltyService } from '../loyalty/loyalty.service';
 import { assertTransition, OrderStatus, PAYABLE_STATUSES } from '../orders/order-status';
 import { Order } from '../orders/order.entity';
 import { CreatePaymentDto } from './dto/create-payment.dto';
@@ -18,6 +19,8 @@ export interface PaymentResult {
   method: Payment['method'];
   transactionRef: string | null;
   failureReason: string | null;
+  /** Điểm thưởng vừa được cộng cho lần thanh toán này (0 nếu thất bại hoặc là kết quả phát lại). */
+  pointsEarned: number;
 }
 
 const KEY_RE = /^[A-Za-z0-9_-]{8,100}$/;
@@ -27,6 +30,7 @@ export class PaymentsService {
   constructor(
     @InjectDataSource() private readonly db: DataSource,
     private readonly gateway: MockPaymentGateway,
+    private readonly loyalty: LoyaltyService,
   ) {}
 
   async pay(userId: number, idempotencyKey: string | undefined, dto: CreatePaymentDto): Promise<PaymentResult> {
@@ -77,7 +81,9 @@ export class PaymentsService {
           order.status = next;
           await m.save(order);
         }
-        return this.toResult(payment);
+        // Cộng điểm thưởng cùng transaction với việc chuyển đơn sang PAID (FR-18).
+        const pointsEarned = result.success ? await this.loyalty.award(m, order) : 0;
+        return this.toResult(payment, pointsEarned);
       });
     } catch (err) {
       // 4) Hai request cùng key lọt qua đồng thời → UNIQUE chặn bản ghi thứ hai; trả kết quả của bản ghi đầu.
@@ -96,7 +102,7 @@ export class PaymentsService {
     return this.toResult(p);
   }
 
-  private toResult(p: Payment): PaymentResult {
+  private toResult(p: Payment, pointsEarned = 0): PaymentResult {
     return {
       paymentId: p.id,
       orderId: p.orderId,
@@ -106,6 +112,7 @@ export class PaymentsService {
       method: p.method,
       transactionRef: p.transactionRef,
       failureReason: p.failureReason,
+      pointsEarned,
     };
   }
 }

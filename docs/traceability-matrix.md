@@ -1,8 +1,8 @@
-# Ma trận truy vết — BrewLite v1.0.0
+# Ma trận truy vết — BrewLite v1.1.0
 
 Truy vết hai chiều từ **yêu cầu** (SRS) → **use-case / user story** → **sơ đồ** → **code** → **kiểm thử**. Cuối tài liệu có bảng đối chiếu yêu cầu Task 5 với bằng chứng và danh sách khoảng trống còn lại.
 
-**Phạm vi:** v1.0.0 và phần mở rộng staff/admin (v1.1.0). FR-19 đến FR-23 bổ sung sau khi nộp bản đầu, qua PR riêng có ghi lý do (ADR 010).
+**Phạm vi:** v1.0.0 và phần mở rộng v1.1.0. FR-19 đến FR-23 (staff/admin, ADR 010) và FR-18, FR-24, FR-25 (khuyến mãi, điểm thưởng, đổi điểm, ADR 011) được bổ sung sau bản đầu, qua PR riêng có ghi lý do.
 
 **Nguồn:** [SRS](requirements/srs.md) · [Đặc tả UC-01](requirements/use-case-spec.md) · [Sơ đồ](diagrams/README.md) · [Backlog](process/backlog.md) · [ADR](architecture/adr/).
 
@@ -12,9 +12,9 @@ Truy vết hai chiều từ **yêu cầu** (SRS) → **use-case / user story** �
 - **Sơ đồ:** Activity-01, Sequence-01, Class-01, `deployment-production.png` (sơ đồ triển khai), xem [`diagrams/README.md`](diagrams/README.md).
 - **Code:** đường dẫn tính từ thư mục gốc repo; `api/` = `apps/api/src/`, `web/` = `apps/web/src/`.
 - **Test:**
-  - `INT-T01…T17`: integration test API trong `apps/api/src/__e2e__/orders-payments.e2e-spec.ts` (PostgreSQL thật).
-  - `E2E-T01…T05`: Playwright trong `tests/e2e/checkout.spec.ts`, chạy trên cả `desktop` và `mobile` (Pixel 5):
-    T01 thực đơn và đổi size · T02 chưa đăng nhập phải đăng nhập · T03 đăng ký → chọn món → đặt đơn → thanh toán · T04 thanh toán thất bại rồi thử lại · T05 lịch sử đơn · T06 admin tạo nhân viên, nhân viên nhận đơn và bắt đầu pha.
+  - `INT-T01…T28`: integration test API trong `apps/api/src/__e2e__/orders-payments.e2e-spec.ts` (PostgreSQL thật).
+  - `E2E-T01…T08`: Playwright trong `tests/e2e/checkout.spec.ts`, chạy trên cả `desktop` và `mobile` (Pixel 5):
+    T01 thực đơn và đổi size · T02 chưa đăng nhập phải đăng nhập · T03 đăng ký → chọn món → đặt đơn → thanh toán · T04 thanh toán thất bại rồi thử lại · T05 lịch sử đơn · T06 admin tạo nhân viên, nhân viên nhận đơn và bắt đầu pha · T07 áp mã khuyến mãi, trả tiền đã giảm, nhận điểm · T08 mã sai bị từ chối.
   - Các tên còn lại là file unit test (Vitest/Jest) cạnh code hoặc trong `apps/web/tests/`.
 
 ## 1. Yêu cầu chức năng
@@ -38,18 +38,20 @@ Truy vết hai chiều từ **yêu cầu** (SRS) → **use-case / user story** �
 | FR-15 | Lịch sử đơn của mình | UC-01 E9; S2-06 | Sequence-01 | `GET /orders/me` (`orders.controller.ts`); `web/components/OrderHistory.tsx`, `web/app/orders` | INT-T10 (không lộ đơn người khác); E2E-T05 |
 | FR-16 | State machine trạng thái đơn | UC-01 bước 9, 11, E8; S2-06 | Class-01 (enum trạng thái) | `api/orders/order-status.ts`; `PATCH /orders/:id/status` (`orders.controller.ts`, `auth/roles.guard.ts`) | `order-status.spec.ts`; INT-T07, INT-T11, INT-T12 |
 | FR-17 | Tồn kho đồng thời | UC-01 E1, E2; S2-04; ADR 005 | Sequence-01, Activity-01 | `api/orders/orders.service.ts` (transaction + optimistic locking) | INT-T04, INT-T05 |
-| FR-18 | Khuyến mãi, điểm thưởng (Could) | UC-01 mục 7 (ngoài phạm vi) | Class-01 (Promotion, LoyaltyTransaction) | **Chưa triển khai** | Không có (xem mục 4) |
+| FR-18 | Khuyến mãi và điểm thưởng | UC-01 A5, E11, bước 9; AC-9, AC-10; S3-06; ADR 011 | Class-01 (Promotion, LoyaltyTransaction); Sequence-01 (cộng điểm khi PAID) | `api/promotions/{promotion.ts, promotions.service.ts, promotion.entity.ts}`; `api/loyalty/{loyalty.ts, loyalty.service.ts, loyalty-transaction.entity.ts, loyalty.controller.ts}`; `api/orders/orders.service.ts` (`create`, `applyPromotion`, `removePromotion`, `cancel`); `api/payments/payments.service.ts`; `POST/DELETE /orders/:id/promotion`, `GET /loyalty/me`; migration `AddPromotionsAndLoyalty`; `web/components/Checkout.tsx`, `OrderDetail.tsx`, `OrderHistory.tsx` | `promotion.spec.ts`, `loyalty.spec.ts`; INT-T18 → T24; `checkout.test.tsx` (mã khuyến mãi); E2E-T07, E2E-T08 |
 | FR-19 | Phân quyền khách / staff / admin | UC-Overview (mở rộng sau v1.0.0); S3-01; ADR 010 | — | `api/users/user-role.ts`, `api/auth/roles.guard.ts`, `roles.decorator.ts`, `admin-bootstrap.service.ts`; migration `AddRolesAndProductActive` | `roles.guard.spec.ts`; `auth.service.spec.ts` (đăng ký luôn là khách, tài khoản khoá 403); INT-T14, INT-T17; `staff-admin.test.tsx` (đăng nhập theo vai trò, liên kết điều hướng); E2E-T06 |
 | FR-20 | Quầy xử lý đơn | S3-02 | Sequence-01 (bước cập nhật trạng thái) | `GET /staff/orders` (`api/orders/staff.controller.ts`, `orders.service.ts`); `web/components/StaffBoard.tsx`, `web/app/staff` | INT-T12, INT-T13; `staff-admin.test.tsx` (StaffBoard); E2E-T06 |
 | FR-21 | Admin xem doanh thu | S3-03 | — | `api/admin/admin.service.ts` (`revenue`), `admin.controller.ts`; `web/components/AdminOverview.tsx` | INT-T15; `staff-admin.test.tsx` (AdminDashboard); E2E-T06 (thấy doanh thu) |
 | FR-22 | Admin xem mọi đơn, quản lý món và tồn kho | S3-04 | Class-01 (Product) | `api/admin/admin.service.ts` (`updateProduct`); `web/components/AdminOrders.tsx`, `AdminProducts.tsx` | INT-T14, INT-T16 |
 | FR-23 | Admin tạo và khoá nhân viên | S3-05 | — | `api/admin/admin.service.ts` (`createStaff`, `setStaffActive`); `web/components/AdminStaff.tsx` | INT-T17; `staff-admin.test.tsx` (tạo nhân viên); E2E-T06 |
+| FR-24 | Admin quản lý mã khuyến mãi | S3-07; ADR 011 | — | `api/admin/admin.controller.ts` (`/admin/promotions`), `api/promotions/promotions.service.ts`; `web/components/AdminPromotions.tsx` | INT-T25; `staff-admin.test.tsx` (tab Khuyến mãi) |
+| FR-25 | Đổi điểm thưởng thành giảm giá (1 điểm = 100đ, tối thiểu 100 điểm) | UC-01 A6; AC-11; S3-08; ADR 011 | Class-01 (LoyaltyTransaction REDEEM/REFUND, Order.pointsRedeemed) | `api/loyalty/{loyalty.ts, loyalty.service.ts}` (`redeem`, `refund`); `api/orders/orders.service.ts` (`redeemPoints`, `removePoints`, `cancel`); `POST/DELETE /orders/:id/points`; `web/components/Checkout.tsx` | `loyalty.spec.ts` (đổi điểm); INT-T26, INT-T27, INT-T28; `checkout.test.tsx` (đổi điểm) |
 
 ## 2. Yêu cầu phi chức năng
 
 | NFR | Yêu cầu (rút gọn) | Cách đáp ứng | Code / cấu hình | Kiểm thử / bằng chứng |
 |---|---|---|---|---|
-| NFR-01 | API phản hồi dưới 500 ms | Truy vấn đơn giản, dữ liệu mẫu nhỏ | `api/products/`, `api/orders/` | **Chưa có test hiệu năng tự động** (xem mục 4) |
+| NFR-01 | API phản hồi dưới 500 ms | Truy vấn đơn giản, dữ liệu mẫu nhỏ | `api/products/`, `api/orders/` | `tests/perf/api-latency.mjs` (`npm run test:perf`): p95 của `/health`, `/products`, `/products/:id`, `/orders/me`, `POST /orders` dưới 15 ms, `POST /auth/login` dưới 100 ms trên máy phát triển (đạt ngưỡng 500 ms) |
 | NFR-02 | Băm mật khẩu | `bcryptjs` khi đăng ký | `api/auth/auth.service.ts` | `auth.service.spec.ts` (băm mật khẩu) |
 | NFR-03 | Validate dữ liệu vào | `ValidationPipe` (whitelist, transform) + DTO | `api/main.ts`, `*/dto/*.dto.ts` | INT-T03, INT-T09; `auth.test.tsx` (validate phía client) |
 | NFR-04 | Mobile-first | Giao diện responsive | `web/app/globals.css` | Bộ E2E-T01…T05 chạy cả project `mobile` (Pixel 5) |
@@ -72,12 +74,12 @@ Truy vết hai chiều từ **yêu cầu** (SRS) → **use-case / user story** �
 | Dừng pipeline và rollback khi lỗi | Rollback tự động trong `cd.yml`; rollback thủ công `.github/workflows/rollback.yml` (đã chạy thử về commit `85236413…`, `/health` trả đúng `version`) |
 | Release, tag, release notes | Tag `v1.0.0`, GitHub Release, [`release-notes/v1.0.0.md`](release-notes/v1.0.0.md) |
 | README: chạy, test, build, deploy, rollback | `README.md` các mục "Chạy trên máy", "Kiểm thử", "Chạy toàn bộ bằng Docker", "Deploy, rollback và phát hành" |
-| Không lộ secret | `.env` không commit; `RAILWAY_TOKEN` ở GitHub Secrets; `JWT_SECRET`, `STAFF_API_KEY`, `DATABASE_URL` ở Railway Variables (`deployment.md` mục 5, ADR 009) |
+| Không lộ secret | `.env` không commit; `RAILWAY_TOKEN` ở GitHub Secrets; `JWT_SECRET`, `ADMIN_EMAIL`, `ADMIN_PASSWORD`, `DATABASE_URL` ở Railway Variables (`deployment.md` mục 5, ADR 009) |
 
 ## 4. Khoảng trống đã biết (cập nhật theo thực tế)
 
 | Mục | Tình trạng | Hướng xử lý |
 |---|---|---|
-| FR-18 (khuyến mãi, điểm thưởng) | Chưa làm; mức Could | Ghi trong release notes mục "Hạn chế đã biết" |
-| NFR-01 (hiệu năng) | Chưa có test tự động | Có thể thêm phép đo đơn giản (ví dụ autocannon) cho `GET /products` và `POST /orders` |
+| Điểm thưởng không hết hạn, không đổi lấy sản phẩm | Ngoài phạm vi | Ghi trong release notes mục "Hạn chế đã biết" |
+| NFR-01 (hiệu năng) | Có phép đo thủ công `npm run test:perf`, chưa chạy trong CI | Số đo trên máy phát triển với dữ liệu mẫu nhỏ, không phản ánh tải cao; có thể thêm vào CI nếu cần |
 | Thanh toán thật | Chỉ có cổng mock | Ngoài phạm vi (UC-01 mục 7) |

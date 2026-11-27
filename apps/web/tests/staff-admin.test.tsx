@@ -40,6 +40,15 @@ function mockApi(role: string, queue: unknown[][] = [[]]) {
     if (url.includes('/admin/stats/revenue')) return res(200, report);
     if (url.endsWith('/admin/staff') && init?.method === 'POST') return res(201, { id: 9, name: 'Mới', email: 'm@b.com', isActive: true, createdAt: '2026-11-15T00:00:00Z' });
     if (url.endsWith('/admin/staff')) return res(200, []);
+    if (url.endsWith('/admin/promotions') && init?.method === 'POST') {
+      return res(201, { id: 7, ...JSON.parse(init.body as string), minOrderTotal: 0, maxDiscount: null, maxUses: null, usedCount: 0, expiresAt: null, isActive: true, createdAt: '2026-11-16T00:00:00Z' });
+    }
+    if (url.endsWith('/admin/promotions')) {
+      return res(200, [{ id: 1, code: 'BREW10', description: '', discountType: 'PERCENT', value: 10, minOrderTotal: 0, maxDiscount: 20000, maxUses: 100, usedCount: 4, expiresAt: null, isActive: true, createdAt: '2026-11-15T00:00:00Z' }]);
+    }
+    if (/\/admin\/promotions\/\d+$/.test(url) && init?.method === 'PATCH') {
+      return res(200, { id: 1, code: 'BREW10', description: '', discountType: 'PERCENT', value: 10, minOrderTotal: 0, maxDiscount: 20000, maxUses: 100, usedCount: 4, expiresAt: null, isActive: JSON.parse(init.body as string).isActive, createdAt: '2026-11-15T00:00:00Z' });
+    }
     return res(404, {});
   }));
   return calls;
@@ -54,7 +63,7 @@ beforeEach(() => {
 afterEach(() => vi.unstubAllGlobals());
 
 describe('đăng nhập theo vai trò', () => {
-  const cases: Array<[string, string]> = [['staff', '/staff'], ['admin', '/admin'], ['customer', '/']];
+  const cases: Array<[string, string]> = [['staff', '/staff'], ['admin', '/admin'], ['customer', '/thuc-don']];
   it.each(cases)('vai trò %s được đưa tới %s khi không có trang đích', async (role, target) => {
     localStorage.clear();
     vi.stubGlobal('fetch', vi.fn(async () => res(200, { accessToken: 't', user: person(role) })));
@@ -136,5 +145,34 @@ describe('AdminDashboard', () => {
     await userEvent.type(screen.getByLabelText('Mật khẩu ban đầu'), '45678');
     await userEvent.click(screen.getByRole('button', { name: 'Tạo nhân viên' }));
     expect(await screen.findByTestId('staff-row')).toHaveTextContent('m@b.com');
+  });
+
+  it('tab Khuyến mãi: xem mã, kiểm tra dữ liệu ở client, tạo mã và tắt mã', async () => {
+    const calls = mockApi('admin');
+    render(<AuthProvider><AdminDashboard /></AuthProvider>);
+    await userEvent.click(await screen.findByRole('tab', { name: 'Khuyến mãi' }));
+    const row = await screen.findByTestId('promo-row');
+    expect(row).toHaveTextContent('BREW10');
+    expect(row).toHaveTextContent('Giảm 10%, tối đa 20.000đ');
+    expect(row).toHaveTextContent('4/100 lượt');
+
+    await userEvent.type(screen.getByLabelText('Mã'), 'ab');
+    await userEvent.click(screen.getByRole('button', { name: 'Tạo mã' }));
+    expect(await screen.findByRole('alert')).toHaveTextContent('Mã gồm 3–30 ký tự');
+    await userEvent.type(screen.getByLabelText('Mã'), 'CHAOHE');
+    await userEvent.type(screen.getByLabelText(/Phần trăm giảm/), '95');
+    await userEvent.click(screen.getByRole('button', { name: 'Tạo mã' }));
+    expect(await screen.findByRole('alert')).toHaveTextContent('tối đa 90%');
+    expect(calls.some((c) => c.url.endsWith('/admin/promotions') && c.init?.method === 'POST')).toBe(false);
+
+    await userEvent.clear(screen.getByLabelText(/Phần trăm giảm/));
+    await userEvent.type(screen.getByLabelText(/Phần trăm giảm/), '15');
+    await userEvent.click(screen.getByRole('button', { name: 'Tạo mã' }));
+    await waitFor(() => expect(screen.getAllByTestId('promo-row')).toHaveLength(2));
+    const post = calls.find((c) => c.url.endsWith('/admin/promotions') && c.init?.method === 'POST')!;
+    expect(JSON.parse(post.init!.body as string)).toEqual({ code: 'abCHAOHE', discountType: 'PERCENT', value: 15 });
+
+    await userEvent.click(within(screen.getAllByTestId('promo-row')[1]).getByRole('button', { name: 'Tắt' }));
+    await waitFor(() => expect(screen.getAllByTestId('promo-row')[1]).toHaveTextContent('Đã tắt'));
   });
 });

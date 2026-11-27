@@ -22,6 +22,10 @@ enum PaymentStatus {
   SUCCEEDED
   FAILED
 }
+enum DiscountType {
+  PERCENT
+  FIXED
+}
 enum SizeCode {
   S
   M
@@ -33,6 +37,9 @@ class User {
   +email: string <<unique>>
   +name: string
   -passwordHash: string
+  +role: customer | staff | admin
+  +isActive: boolean
+  +loyaltyPoints: int
   +createdAt: timestamp
 }
 class Product {
@@ -50,7 +57,11 @@ class Product {
 class Order {
   +id: int <<PK>>
   +status: OrderStatus
-  +total: int
+  +total: int  «sau giảm giá»
+  +discountAmount: int
+  +promotionCode: string [0..1]  «snapshot»
+  +pointsRedeemed: int
+  +pointsDiscount: int  «1 điểm = 100đ»
   +createdAt: timestamp
   +updatedAt: timestamp
 }
@@ -73,19 +84,24 @@ class Payment {
   +failureReason: string [0..1]
   +createdAt: timestamp
 }
-class Promotion <<FR-18 · chưa hiện thực>> {
-  +code: string <<unique>>
-  +discountType: PERCENT | AMOUNT
-  +discountValue: int
-  +validFrom: date
-  +validTo: date
-  +active: boolean
-}
-class LoyaltyTransaction <<FR-18 · chưa hiện thực>> {
+class Promotion {
   +id: int <<PK>>
-  +points: int
-  +reason: string
-  +createdAt: timestamp
+  +code: string <<unique>>
+  +description: string
+  +discountType: DiscountType
+  +value: int
+  +minOrderTotal: int
+  +maxDiscount: int [0..1]
+  +maxUses: int [0..1]
+  +usedCount: int
+  +expiresAt: timestamp [0..1]
+  +isActive: boolean
+}
+class LoyaltyTransaction {
+  +id: int <<PK>>
+  +type: EARN | REDEEM | REFUND
+  +points: int  «âm khi dùng điểm»
+  +createdAt: timestamp  «EARN: unique(orderId)»
 }
 
 User "1" -- "0..*" Order : đặt >
@@ -95,9 +111,10 @@ Order "1" -- "0..*" Payment : được thanh toán bởi >
 OrderItem "0..*" ..> "1" Product : tham chiếu (productId)
 Order "0..*" -- "0..1" Promotion : áp dụng >
 User "1" -- "0..*" LoyaltyTransaction : tích điểm
-LoyaltyTransaction "0..*" -- "0..1" Order : phát sinh từ >
+LoyaltyTransaction "0..*" -- "1" Order : phát sinh từ >
 
 Order ..> OrderStatus
+Promotion ..> DiscountType
 Payment ..> PaymentMethod
 Payment ..> PaymentStatus
 OrderItem ..> SizeCode

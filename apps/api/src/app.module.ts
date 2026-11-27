@@ -6,6 +6,8 @@ import { HealthController } from './health/health.controller';
 import { AuthModule } from './auth/auth.module';
 import { OrdersModule } from './orders/orders.module';
 import { PaymentsModule } from './payments/payments.module';
+import { LoyaltyModule } from './loyalty/loyalty.module';
+import { PromotionsModule } from './promotions/promotions.module';
 import { AdminModule } from './admin/admin.module';
 import { buildDataSourceOptions } from './database/database.config';
 
@@ -34,6 +36,8 @@ import { buildDataSourceOptions } from './database/database.config';
     AuthModule,
     OrdersModule,
     PaymentsModule,
+    PromotionsModule,
+    LoyaltyModule,
     AdminModule,
   ],
   controllers: [HealthController],
